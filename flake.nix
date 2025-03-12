@@ -1,5 +1,5 @@
 {
-  description = "A very basic flake";
+  description = "A Nix flake providing easy access to useful packages that might not be available or up-to-date in the main nixpkgs repository.";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";

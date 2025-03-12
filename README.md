@@ -24,7 +24,7 @@ Add this repository to your `flake.nix`:
 {
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
-    nix-support.url = "github:fellowapp/nix-support"; # Replace with the actual repo URL
+    nix-support.url = "github:fellowapp/nix-support";
   };
 
   outputs = { self, nixpkgs, nix-support }: {

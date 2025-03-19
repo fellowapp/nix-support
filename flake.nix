@@ -27,8 +27,8 @@
             }
           );
           installPhase = ''
-            mkdir -p $out/debezium-connector-mysql
-            cp -R . $out/debezium-connector-mysql
+            mkdir -p $out/debezium/debezium-connector-mysql
+            cp -R . $out/debezium/debezium-connector-mysql
           '';
         };
         elasticsearch8 =

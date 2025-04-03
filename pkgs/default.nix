@@ -1,0 +1,4 @@
+{pkgs}: {
+  debezium = import ./debezium.nix {inherit pkgs;};
+  elasticsearch8 = import ./elasticsearch8.nix {inherit pkgs;};
+}

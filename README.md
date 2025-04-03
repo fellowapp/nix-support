@@ -9,6 +9,8 @@ or up-to-date in the main nixpkgs repository.
   for both x86_64 and aarch64 architectures on Linux and macOS
 - **Debezium MySQL Connector 3.0.8** - Debezium's change data capture (CDC)
   connector for MySQL databases
+- **Atlas 0.32.1** - Atlas CLI tool for database schema management, with support
+  for both x86_64 and aarch64 architectures on Linux and macOS
 
 ## Requirements
 
@@ -48,6 +50,7 @@ outputs = { self, nixpkgs, nix-support }: {
       buildInputs = [
         nix-support.packages.x86_64-linux.elasticsearch8
         nix-support.packages.x86_64-linux.debezium
+        nix-support.packages.x86_64-linux.atlas
       ];
     };
 };
@@ -59,4 +62,5 @@ You can also run the packages directly:
 
 ```bash
 nix run github:fellowapp/nix-support#elasticsearch8
+nix run github:fellowapp/nix-support#atlas
 ```

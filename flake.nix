@@ -21,7 +21,7 @@
         customPkgs = import ./pkgs {inherit pkgs;};
       in {
         packages = {
-          inherit (customPkgs) elasticsearch8 debezium;
+          inherit (customPkgs) elasticsearch8 debezium atlas;
         };
 
         checks = {
@@ -42,6 +42,21 @@
               touch $out
             else
               echo "✗ Elasticsearch version check failed"
+              echo "Expected version: $expected_version"
+              echo "Actual output: $output"
+              exit 1
+            fi
+          '';
+
+          atlas-version = pkgs.runCommand "check-atlas-version" {} ''
+            output=$(${customPkgs.atlas}/bin/atlas version)
+            expected_version="0.32.1"
+
+            if echo "$output" | grep -q "$expected_version"; then
+              echo "✓ Atlas version check passed: $output"
+              touch $out
+            else
+              echo "✗ Atlas version check failed"
               echo "Expected version: $expected_version"
               echo "Actual output: $output"
               exit 1

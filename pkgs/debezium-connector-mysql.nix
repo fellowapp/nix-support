@@ -1,6 +1,6 @@
 {pkgs}:
 pkgs.stdenv.mkDerivation {
-  name = "debezium";
+  name = "debezium-connector-mysql";
   src = (
     fetchTarball {
       url = "https://repo1.maven.org/maven2/io/debezium/debezium-connector-mysql/3.0.8.Final/debezium-connector-mysql-3.0.8.Final-plugin.tar.gz";

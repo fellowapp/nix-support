@@ -21,12 +21,13 @@
         customPkgs = import ./pkgs {inherit pkgs;};
       in {
         packages = {
-          inherit (customPkgs) elasticsearch8 debezium atlas;
+          inherit (customPkgs) elasticsearch8 debezium-connector-mysql atlas;
+          debezium = customPkgs.debezium-connector-mysql; # Alias for compatibility
         };
 
         checks = {
           debezium-structure = pkgs.runCommand "check-debezium-structure" {} ''
-            if [ ! -d ${customPkgs.debezium}/debezium ]; then
+            if [ ! -d ${customPkgs.debezium-connector-mysql}/debezium ]; then
               echo "✗ debezium folder does not exist in the package"
               exit 1
             fi

@@ -2,4 +2,5 @@
   debezium-connector-mysql = import ./debezium-connector-mysql.nix {inherit pkgs;};
   elasticsearch8 = import ./elasticsearch8.nix {inherit pkgs;};
   atlas = import ./atlas.nix {inherit pkgs;};
+  debezium-server = import ./debezium-server.nix {inherit pkgs;};
 }

@@ -21,7 +21,13 @@
         customPkgs = import ./pkgs {inherit pkgs;};
       in {
         packages = {
-          inherit (customPkgs) elasticsearch8 debezium-connector-mysql atlas;
+          inherit
+            (customPkgs)
+            elasticsearch8
+            debezium-connector-mysql
+            atlas
+            debezium-server
+            ;
           debezium = customPkgs.debezium-connector-mysql; # Alias for compatibility
         };
 

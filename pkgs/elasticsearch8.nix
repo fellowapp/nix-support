@@ -11,7 +11,7 @@
     else "linux";
   hashes = {
     "x86_64-linux" = "sha512-au9PyE67/JjmZiQYxzTqicro5TqNbB+9U1KAe8Qn4EDmK+VotQKr3Ot6L1dTTq5g4xcS0Fg9N1L9Obe4o2MtOw==";
-    "aarch64-linux" = "sha512-au9PyE67/JjmZiQYxzTqicro5TqNbB+9U1KAe8Qn4EDmK+VotQKr3Ot6L1dTTq5g4xcS0Fg9N1L9Obe4o2MtOw==";
+    "aarch64-linux" = "sha512-Cxs+oOtrNy+4LN83YXGYmpMGi9xMP4DcJnB0g9CWBfa0DGUJbOzF4Vz87ZxvgjU/SmMutnesXXWbM4Pfk3bMRg==";
     "x86_64-darwin" = "sha512-R7YbSehFAGJLwrSx6FNs6CArYUyo1JZc4VKZQJ5fbDVBpyhwFmtI6PWSVlLYyx2qnj9Yd/7YBTuhrj9sqQDYZQ==";
     "aarch64-darwin" = "sha512-R7YbSehFAGJLwrSx6FNs6CArYUyo1JZc4VKZQJ5fbDVBpyhwFmtI6PWSVlLYyx2qnj9Yd/7YBTuhrj9sqQDYZQ==";
   };
@@ -34,11 +34,11 @@ in
         "ES_CLASSPATH=\"\$ES_CLASSPATH:$out/\$additional_classpath_directory/*\""
     '';
 
-    nativeBuildInputs =
-      [
-        pkgs.makeBinaryWrapper
-      ]
-      ++ pkgs.lib.optional (!pkgs.stdenv.hostPlatform.isDarwin) pkgs.autoPatchelfHook;
+    nativeBuildInputs = [
+      pkgs.makeBinaryWrapper
+    ] ++ pkgs.lib.optionals (!pkgs.stdenv.hostPlatform.isDarwin) [
+      pkgs.patchelf
+    ];
 
     buildInputs = [
       pkgs.jre_headless
@@ -64,6 +64,36 @@ in
       }" \
         --set ES_JAVA_HOME "${pkgs.jre_headless}"
       wrapProgram $out/bin/elasticsearch-plugin --set ES_JAVA_HOME "${pkgs.jre_headless}"
+    '';
+
+    postInstall = pkgs.lib.optionalString (!pkgs.stdenv.hostPlatform.isDarwin) ''
+      # Manually patch ELF binaries on Linux to fix dynamic library paths
+      find $out -type f -executable | while read -r file; do
+        if file "$file" | grep -q "ELF.*executable" && [ ! -L "$file" ]; then
+          echo "Patching ELF executable: $file"
+          # Use patchelf to set the interpreter and fix rpath, but be more conservative
+          if ${pkgs.patchelf}/bin/patchelf --print-interpreter "$file" 2>/dev/null; then
+            ${pkgs.patchelf}/bin/patchelf \
+              --set-interpreter "$(cat ${pkgs.stdenv.cc}/nix-support/dynamic-linker)" \
+              "$file" 2>/dev/null || echo "Failed to set interpreter for $file"
+          fi
+          if ${pkgs.patchelf}/bin/patchelf --print-rpath "$file" 2>/dev/null; then
+            ${pkgs.patchelf}/bin/patchelf \
+              --set-rpath "${pkgs.lib.makeLibraryPath [ pkgs.zlib pkgs.stdenv.cc.cc.lib ]}" \
+              "$file" 2>/dev/null || echo "Failed to set rpath for $file"
+          fi
+        fi
+      done
+
+      # Also patch any shared libraries, but be selective
+      find $out -name "*.so*" -type f | while read -r file; do
+        if file "$file" | grep -q "ELF.*shared object" && [ ! -L "$file" ]; then
+          echo "Patching shared library: $file"
+          ${pkgs.patchelf}/bin/patchelf \
+            --set-rpath "${pkgs.lib.makeLibraryPath [ pkgs.zlib pkgs.stdenv.cc.cc.lib ]}" \
+            "$file" 2>/dev/null || echo "Failed to patch shared library $file"
+        fi
+      done
     '';
 
     passthru = {

@@ -42,7 +42,7 @@ You can use the packages from this flake in your configuration:
 ```nix
 # In your outputs
 outputs = { self, nixpkgs, nix-support }: {
-  devShells.x86_64-linux.default = 
+  devShells.x86_64-linux.default =
     let
       pkgs = import nixpkgs { system = "x86_64-linux"; };
     in

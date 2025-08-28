@@ -23,6 +23,7 @@
         packages = {
           inherit
             (customPkgs)
+            cursor-cli
             elasticsearch8
             debezium-connector-mysql
             atlas

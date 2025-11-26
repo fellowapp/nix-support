@@ -4,4 +4,5 @@
   elasticsearch8 = import ./elasticsearch8.nix {inherit pkgs;};
   atlas = import ./atlas.nix {inherit pkgs;};
   debezium-server = import ./debezium-server.nix {inherit pkgs;};
+  svix-server = import ./svix-server.nix {inherit pkgs;};
 }

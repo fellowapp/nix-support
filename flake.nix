@@ -28,6 +28,7 @@
             debezium-connector-mysql
             atlas
             debezium-server
+            svix-server
             ;
           debezium = customPkgs.debezium-connector-mysql; # Alias for compatibility
         };

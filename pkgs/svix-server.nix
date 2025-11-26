@@ -14,8 +14,17 @@ in
 
     sourceRoot = "${src.name}/server";
 
-    useFetchCargoVendor = true;
     cargoHash = "sha256-fOUPaU/1+FvL9hSzWQVouAXmCjI6ppOjJqtgM4+cXf8=";
+
+    nativeBuildInputs = with pkgs; [
+      pkg-config
+    ];
+
+    buildInputs = with pkgs; [
+      openssl
+    ] ++ pkgs.lib.optionals pkgs.stdenv.hostPlatform.isDarwin [
+      libiconv
+    ];
 
     # Skip tests during build (they require database setup)
     doCheck = false;

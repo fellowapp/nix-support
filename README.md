@@ -12,6 +12,7 @@ or up-to-date in the main nixpkgs repository.
 - **Atlas 0.32.1** - Atlas CLI tool for database schema management, with support
   for both x86_64 and aarch64 architectures on Linux and macOS
 - **Cursor-cli** - [Cursor CLI tool](https://cursor.com/cli) (cluster-agent)
+- **Svix-server 1.76.1** - The enterprise-ready webhooks service, built from source
 
 ## Requirements
 

@@ -29,6 +29,7 @@
             atlas
             debezium-server
             svix-server
+            terragrunt
             ;
           debezium = customPkgs.debezium-connector-mysql; # Alias for compatibility
         };

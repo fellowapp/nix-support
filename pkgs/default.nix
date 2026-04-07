@@ -6,4 +6,6 @@
   debezium-server = import ./debezium-server.nix {inherit pkgs;};
   svix-server = import ./svix-server.nix {inherit pkgs;};
   terragrunt = import ./terragrunt.nix {inherit pkgs;};
+  debezium-connector-planetscale = import ./debezium-connector-planetscale.nix {inherit pkgs;};
+
 }

@@ -1,4 +1,6 @@
 {pkgs}: {
+  vitess = import ./vitess.nix {inherit pkgs;};
+
   debezium-connector-mysql = import ./debezium-connector-mysql.nix {inherit pkgs;};
   cursor-cli = import ./cursor-cli.nix {inherit pkgs;};
   elasticsearch8 = import ./elasticsearch8.nix {inherit pkgs;};

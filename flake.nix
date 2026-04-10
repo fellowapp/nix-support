@@ -32,6 +32,7 @@
             terragrunt
             debezium-connector-planetscale
             debezium-connector-vitess
+            vitess
             ;
           debezium = customPkgs.debezium-connector-mysql; # Alias for compatibility
         };

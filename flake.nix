@@ -31,6 +31,7 @@
             svix-server
             terragrunt
             debezium-connector-planetscale
+            debezium-connector-vitess
             ;
           debezium = customPkgs.debezium-connector-mysql; # Alias for compatibility
         };

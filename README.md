@@ -13,6 +13,7 @@ or up-to-date in the main nixpkgs repository.
   for both x86_64 and aarch64 architectures on Linux and macOS
 - **Cursor-cli** - [Cursor CLI tool](https://cursor.com/cli) (cluster-agent)
 - **Svix-server 1.76.1** - The enterprise-ready webhooks service, built from source
+- **RustFS 1.0.0-alpha.82** - High-performance S3-compatible object storage, built from source
 
 ## Requirements
 

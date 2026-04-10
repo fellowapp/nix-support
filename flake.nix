@@ -33,6 +33,7 @@
             debezium-connector-planetscale
             debezium-connector-vitess
             vitess
+            rustfs
             ;
           debezium = customPkgs.debezium-connector-mysql; # Alias for compatibility
         };

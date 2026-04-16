@@ -1,20 +1,20 @@
-# Builds vitess 21.0.4 with the config/ directory included.
+# Builds vitess 23.0.3 with the config/ directory included.
 #
 # The upstream nixpkgs vitess package only ships bin/, but vttestserver/mysqlctl
 # expect $VTROOT/config/init_db.sql and $VTROOT/config/mycnf/*.cnf at runtime.
 {pkgs}:
 pkgs.buildGoModule (finalAttrs: {
   pname = "vitess";
-  version = "21.0.4";
+  version = "23.0.3";
 
   src = pkgs.fetchFromGitHub {
     owner = "vitessio";
     repo = "vitess";
     rev = "v${finalAttrs.version}";
-    hash = "sha256-QapbbLZ/wDCKYQW98l780PT4ZEXAbhW0o4Zk2MlG6DQ=";
+    hash = "sha256-cLpVpdYpMzJX5Y4RBuUp2SbedBHiqG+SRu8Oh+dowFY=";
   };
 
-  vendorHash = "sha256-Bc9rhfGSjqhDQBOPS4noW8qJ4P5xLtVcokRhDbqP3a0=";
+  vendorHash = "sha256-YhWa5eUeMCqmA+8Mi3lxQTSQ29xMpWWAb2BQPN1/+N8=";
 
   buildInputs = [pkgs.sqlite];
 

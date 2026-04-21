@@ -64,7 +64,7 @@
 
           atlas-version = pkgs.runCommand "check-atlas-version" {} ''
             output=$(${customPkgs.atlas}/bin/atlas version)
-            expected_version="0.32.1"
+            expected_version="1.2.0"
 
             if echo "$output" | grep -q "$expected_version"; then
               echo "✓ Atlas version check passed: $output"

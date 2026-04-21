@@ -5,15 +5,19 @@ or up-to-date in the main nixpkgs repository.
 
 ## Currently Supported Packages
 
-- **Elasticsearch 8.17.3** - The latest version of Elasticsearch, with support
-  for both x86_64 and aarch64 architectures on Linux and macOS
-- **Debezium MySQL Connector 3.0.8** - Debezium's change data capture (CDC)
-  connector for MySQL databases
-- **Atlas 0.32.1** - Atlas CLI tool for database schema management, with support
-  for both x86_64 and aarch64 architectures on Linux and macOS
-- **Cursor-cli** - [Cursor CLI tool](https://cursor.com/cli) (cluster-agent)
-- **Svix-server 1.76.1** - The enterprise-ready webhooks service, built from source
-- **RustFS 1.0.0-alpha.96** - High-performance S3-compatible object storage, built from source
+| Package | Version | Description |
+| --- | --- | --- |
+| `atlas` | 1.2.0 | Atlas CLI tool for database schema management, with support for both x86_64 and aarch64 architectures on Linux and macOS |
+| `cursor-cli` | latest | [Cursor CLI tool](https://cursor.com/cli) (cluster-agent) |
+| `debezium-connector-mysql` | 3.0.8.Final | Debezium's change data capture (CDC) connector for MySQL databases (also exposed as `debezium`) |
+| `debezium-connector-planetscale` | 2.4.0.Final | Debezium change data capture (CDC) connector for PlanetScale |
+| `debezium-connector-vitess` | 2.4.1.Final | Debezium change data capture (CDC) connector for Vitess |
+| `debezium-server` | 3.1.1.Final | Standalone Debezium runtime for streaming change events without Kafka Connect |
+| `elasticsearch8` | 8.17.3 | The latest version of Elasticsearch, with support for both x86_64 and aarch64 architectures on Linux and macOS |
+| `rustfs` | 1.0.0-alpha.96 | High-performance S3-compatible object storage, built from source |
+| `svix-server` | 1.76.1 | The enterprise-ready webhooks service, built from source |
+| `terragrunt` | 1.0.0-rc2 | Thin wrapper for Terraform/OpenTofu that provides extra tools for managing infrastructure as code |
+| `vitess` | 23.0.3 | Database clustering system for horizontal scaling of MySQL |
 
 ## Requirements
 

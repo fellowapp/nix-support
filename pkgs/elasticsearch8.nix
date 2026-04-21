@@ -12,7 +12,7 @@
   hashes = {
     "x86_64-linux" = "sha512-au9PyE67/JjmZiQYxzTqicro5TqNbB+9U1KAe8Qn4EDmK+VotQKr3Ot6L1dTTq5g4xcS0Fg9N1L9Obe4o2MtOw==";
     "aarch64-linux" = "sha512-Cxs+oOtrNy+4LN83YXGYmpMGi9xMP4DcJnB0g9CWBfa0DGUJbOzF4Vz87ZxvgjU/SmMutnesXXWbM4Pfk3bMRg==";
-    "x86_64-darwin" = "sha512-R7YbSehFAGJLwrSx6FNs6CArYUyo1JZc4VKZQJ5fbDVBpyhwFmtI6PWSVlLYyx2qnj9Yd/7YBTuhrj9sqQDYZQ==";
+    "x86_64-darwin" = "sha512-vmd8TTdjYaYkVvxEhPjlAgrSuc1PpUzHjJZcXKCnX9tHRQXZ/OuGg0IG+RosaTl9e37fxUQ52biyRfA0NhDNhw==";
     "aarch64-darwin" = "sha512-R7YbSehFAGJLwrSx6FNs6CArYUyo1JZc4VKZQJ5fbDVBpyhwFmtI6PWSVlLYyx2qnj9Yd/7YBTuhrj9sqQDYZQ==";
   };
 in

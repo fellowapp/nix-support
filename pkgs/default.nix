@@ -11,5 +11,4 @@
   debezium-connector-planetscale = import ./debezium-connector-planetscale.nix {inherit pkgs;};
   debezium-connector-vitess = import ./debezium-connector-vitess.nix {inherit pkgs;};
   rustfs = import ./rustfs.nix {inherit pkgs;};
-
 }

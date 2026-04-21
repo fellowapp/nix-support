@@ -17,5 +17,8 @@ jobs:
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@v16
 
+      - name: Check formatting
+        run: nix fmt flake.nix pkgs/*.nix -- --check
+
       - name: Run nix flake check
         run: nix flake check

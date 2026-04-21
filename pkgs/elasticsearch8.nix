@@ -34,11 +34,13 @@ in
         "ES_CLASSPATH=\"\$ES_CLASSPATH:$out/\$additional_classpath_directory/*\""
     '';
 
-    nativeBuildInputs = [
-      pkgs.makeBinaryWrapper
-    ] ++ pkgs.lib.optionals (!pkgs.stdenv.hostPlatform.isDarwin) [
-      pkgs.patchelf
-    ];
+    nativeBuildInputs =
+      [
+        pkgs.makeBinaryWrapper
+      ]
+      ++ pkgs.lib.optionals (!pkgs.stdenv.hostPlatform.isDarwin) [
+        pkgs.patchelf
+      ];
 
     buildInputs = [
       pkgs.jre_headless
@@ -79,7 +81,7 @@ in
           fi
           if ${pkgs.patchelf}/bin/patchelf --print-rpath "$file" 2>/dev/null; then
             ${pkgs.patchelf}/bin/patchelf \
-              --set-rpath "${pkgs.lib.makeLibraryPath [ pkgs.zlib pkgs.stdenv.cc.cc.lib ]}" \
+              --set-rpath "${pkgs.lib.makeLibraryPath [pkgs.zlib pkgs.stdenv.cc.cc.lib]}" \
               "$file" 2>/dev/null || echo "Failed to set rpath for $file"
           fi
         fi
@@ -90,7 +92,7 @@ in
         if file "$file" | grep -q "ELF.*shared object" && [ ! -L "$file" ]; then
           echo "Patching shared library: $file"
           ${pkgs.patchelf}/bin/patchelf \
-            --set-rpath "${pkgs.lib.makeLibraryPath [ pkgs.zlib pkgs.stdenv.cc.cc.lib ]}" \
+            --set-rpath "${pkgs.lib.makeLibraryPath [pkgs.zlib pkgs.stdenv.cc.cc.lib]}" \
             "$file" 2>/dev/null || echo "Failed to patch shared library $file"
         fi
       done

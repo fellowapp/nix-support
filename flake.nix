@@ -20,6 +20,8 @@
         # Import our package modules
         customPkgs = import ./pkgs {inherit pkgs;};
       in {
+        formatter = pkgs.alejandra;
+
         packages = {
           inherit
             (customPkgs)

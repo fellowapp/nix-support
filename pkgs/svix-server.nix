@@ -20,11 +20,13 @@ in
       pkg-config
     ];
 
-    buildInputs = with pkgs; [
-      openssl
-    ] ++ pkgs.lib.optionals pkgs.stdenv.hostPlatform.isDarwin [
-      libiconv
-    ];
+    buildInputs = with pkgs;
+      [
+        openssl
+      ]
+      ++ pkgs.lib.optionals pkgs.stdenv.hostPlatform.isDarwin [
+        libiconv
+      ];
 
     # Skip tests during build (they require database setup)
     doCheck = false;
@@ -37,4 +39,3 @@ in
       platforms = platforms.unix;
     };
   }
-

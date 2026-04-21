@@ -7,7 +7,7 @@ pkgs.stdenv.mkDerivation {
     pkgs.cacert
     pkgs.bash
     pkgs.curl
-    ];
+  ];
   src = pkgs.fetchurl {
     url = "https://cursor.com/install";
     sha256 = "sha256-MGfKxi3R+PpSQk8rB4CBL7Iw63G+U+5sk0g2+5OcsnM="; # You'll need to get the actual hash

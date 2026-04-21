@@ -1,5 +1,4 @@
-{pkgs}:
-let
+{pkgs}: let
   version = "1.0.0-alpha.96";
 in
   pkgs.rustPlatform.buildRustPackage rec {
@@ -27,11 +26,13 @@ in
       protobuf
     ];
 
-    buildInputs = with pkgs; [
-      openssl
-    ] ++ pkgs.lib.optionals pkgs.stdenv.hostPlatform.isDarwin [
-      libiconv
-    ];
+    buildInputs = with pkgs;
+      [
+        openssl
+      ]
+      ++ pkgs.lib.optionals pkgs.stdenv.hostPlatform.isDarwin [
+        libiconv
+      ];
 
     # Skip tests during build (they require infrastructure setup)
     doCheck = false;

@@ -1,6 +1,6 @@
 {pkgs}:
 let
-  version = "1.0.0-alpha.82";
+  version = "1.0.0-alpha.96";
 in
   pkgs.rustPlatform.buildRustPackage rec {
     pname = "rustfs";
@@ -10,10 +10,10 @@ in
       owner = "rustfs";
       repo = "rustfs";
       rev = version;
-      hash = "sha256-wkqGGzCnAJk8HGIQ4iB0P0SQptrRtWATz2DdE5CpBMo=";
+      hash = "sha256-biJ46HmQ5zyuWB6wa51m8YbR0VxslSPI0FOQKUgwwMY=";
     };
 
-    cargoHash = "sha256-wvc7qpIbh5asE89gvMr+Ga/3dbqfthxCrZHPvO0/mU0=";
+    cargoHash = "sha256-sBaNV+lCdMgpXPOWng58+C4kdpez9E9ZDetZGOoyWbk=";
 
     cargoBuildFlags = ["-p" "rustfs"];
 

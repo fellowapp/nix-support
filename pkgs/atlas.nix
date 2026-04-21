@@ -10,14 +10,13 @@
     then "darwin"
     else "linux";
 
-  version = "0.32.1-d9ffec1-canary";
+  version = "1.2.0";
 
   hashes = {
-    "amd64-linux" = "sha256-SgQy/Ht3PtSqqozZvJHlQKbydYX9r0ZQczCu8OQCV7M=";
-    "arm64-linux" = "sha256-SgQy/Ht3PtSqqozZvJHlQKbydYX9r0ZQczCu8OQCV7M=";
-    "amd64-darwin" = "sha256-9sse774dV4aLKMCvKGH6vJyguldsKPnhVN4KofywTMY=";
-    "arm64-darwin" = "sha256-9sse774dV4aLKMCvKGH6vJyguldsKPnhVN4KofywTMY=";
-    # Add other platform hashes as needed
+    "amd64-linux" = "sha256-H9CQIf+hNXWUUF9EL5eDz8JZn6Wgq4UMWWLtbXe/nJo=";
+    "arm64-linux" = "sha256-w3Xe5jnW1CllWJ7yhcFJ0XZJ+uEojIrBh4AUNWYfNUM=";
+    "amd64-darwin" = "sha256-Nr2+Y7vCint0Anve/dUOwu8zrMYeo+H845s0He+NuOM=";
+    "arm64-darwin" = "sha256-IFCP33rXl4neLUU68Lt3PiWCrLXJmV2hnhGel+yTb+E=";
   };
 in
   pkgs.stdenv.mkDerivation rec {

@@ -26,6 +26,7 @@
           inherit
             (customPkgs)
             cursor-cli
+            depot
             elasticsearch8
             debezium-connector-mysql
             atlas
@@ -73,6 +74,21 @@
               touch $out
             else
               echo "✗ Atlas version check failed"
+              echo "Expected version: $expected_version"
+              echo "Actual output: $output"
+              exit 1
+            fi
+          '';
+
+          depot-version = pkgs.runCommand "check-depot-version" {} ''
+            output=$(${customPkgs.depot}/bin/depot version)
+            expected_version="2.102.6"
+
+            if echo "$output" | grep -q "$expected_version"; then
+              echo "✓ Depot version check passed: $output"
+              touch $out
+            else
+              echo "✗ Depot version check failed"
               echo "Expected version: $expected_version"
               echo "Actual output: $output"
               exit 1

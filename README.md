@@ -13,6 +13,7 @@ or up-to-date in the main nixpkgs repository.
 | `debezium-connector-planetscale` | 2.4.0.Final | Debezium change data capture (CDC) connector for PlanetScale |
 | `debezium-connector-vitess` | 2.4.1.Final | Debezium change data capture (CDC) connector for Vitess |
 | `debezium-server` | 3.1.1.Final | Standalone Debezium runtime for streaming change events without Kafka Connect |
+| `depot` | 2.102.6 | [Depot CLI](https://github.com/depot/cli) for building Docker images in the cloud |
 | `elasticsearch8` | 8.17.3 | The latest version of Elasticsearch, with support for both x86_64 and aarch64 architectures on Linux and macOS |
 | `rustfs` | 1.0.0-alpha.96 | High-performance S3-compatible object storage, built from source |
 | `svix-server` | 1.76.1 | The enterprise-ready webhooks service, built from source |
@@ -70,4 +71,5 @@ You can also run the packages directly:
 ```bash
 nix run github:fellowapp/nix-support#elasticsearch8
 nix run github:fellowapp/nix-support#atlas
+nix run github:fellowapp/nix-support#depot
 ```

@@ -25,6 +25,7 @@
         packages = {
           inherit
             (customPkgs)
+            dolt
             cursor-cli
             elasticsearch8
             debezium-connector-mysql

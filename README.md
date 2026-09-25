@@ -14,6 +14,7 @@ or up-to-date in the main nixpkgs repository.
 | `debezium-connector-vitess` | 2.4.1.Final | Debezium change data capture (CDC) connector for Vitess |
 | `debezium-server` | 3.1.1.Final | Standalone Debezium runtime for streaming change events without Kafka Connect |
 | `elasticsearch8` | 8.17.3 | The latest version of Elasticsearch, with support for both x86_64 and aarch64 architectures on Linux and macOS |
+| `dolt` | 2.3.5 | MySQL-compatible database with Git-style version control; official binaries for macOS and Linux |
 | `rustfs` | 1.0.0-alpha.96 | High-performance S3-compatible object storage, built from source |
 | `svix-server` | 1.76.1 | The enterprise-ready webhooks service, built from source |
 | `terragrunt` | 1.0.0-rc2 | Thin wrapper for Terraform/OpenTofu that provides extra tools for managing infrastructure as code |

@@ -1,4 +1,5 @@
 {pkgs}: {
+  dolt = import ./dolt.nix {inherit pkgs;};
   vitess = import ./vitess.nix {inherit pkgs;};
 
   debezium-connector-mysql = import ./debezium-connector-mysql.nix {inherit pkgs;};

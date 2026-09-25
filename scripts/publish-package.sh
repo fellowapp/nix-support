@@ -5,6 +5,9 @@ cd "$(dirname "$0")/.."
 
 repo=${GITHUB_REPOSITORY:-fellowapp/nix-support}
 
+# Test commands, runner labels, and CLI tooling are not package identity.
+identity_filter='def identity: {package, version, fingerprint, nixpkgs_rev, systems: ([.platforms[].system] | sort)};'
+
 die() { echo "Error: $*" >&2; exit 1; }
 metadata() { nix eval --json --file nix/release.nix --apply "release: release { package = \"$package\"; }"; }
 emit() {
@@ -86,15 +89,35 @@ resolve_catalog() {
   die 'Catalog did not resolve the expected package version on all requested systems'
 }
 
+# Compare the output actually built on this runner, including completed releases.
+# The source may be newer than the original publication for unchanged inputs.
+verify_build() {
+  jq -e --argjson meta "$meta" "$identity_filter identity == (\$meta | identity)" <<< "$publication" > /dev/null || die 'Publication inputs differ from this build'
+  jq -e --argjson meta "$meta" --arg system "$system" --arg source "${GITHUB_SHA:?}" "$identity_filter"'
+    (.metadata | identity) == ($meta | identity) and .system == $system and .source == $source and
+    (.out | startswith("/nix/store/") and endswith("-" + $meta.package + "-" + $meta.version))
+  ' "$directory/$system.json" > /dev/null || die 'Invalid native build result'
+  expected=$(jq -er .out "$directory/$system.json")
+  receipt=$(asset "$system.json")
+  if [[ $receipt == null ]]; then
+    [[ $(jq -r .draft <<< "$release") == true ]] || die 'Completed release has missing platform receipts'
+  else
+    jq -e --arg out "$expected" --arg source "$(jq -r .source <<< "$publication")" --arg system "$system" --argjson meta "$meta" '
+      .out == $out and .source == $source and .system == $system and
+      .version == $meta.version and .fingerprint == $meta.fingerprint
+    ' <<< "$receipt" > /dev/null || die 'Published output changed without a new release identity'
+  fi
+}
+
 main() {
   package=${PACKAGE:?Set PACKAGE to a registered package}
-  local command=${1:?Expected metadata, build, prepare, publish, or finish}
+  local command=${1:?Expected metadata, build, prepare, verify-built, publish, or finish}
   local directory=${2:-}
   work=$(mktemp -d)
   trap 'rm -rf "$work"' EXIT
 
-  if [[ $command == prepare ]]; then
-    meta=$(jq .metadata "$directory/x86_64-linux.json")
+  if [[ $command == prepare || $command == verify-built ]]; then
+    meta=$(cat "$directory/metadata.json")
   else
     meta=$(metadata)
   fi
@@ -134,13 +157,6 @@ main() {
         echo '{"pending":false,"matrix":[]}' > "$directory/plan.json"
         return
       fi
-      # Every native build must agree on inputs and the workflow source commit.
-      for system in $(jq -r '.platforms[].system' <<< "$meta"); do
-        jq -e --argjson meta "$meta" --arg source "$GITHUB_SHA" --arg system "$system" '
-          .metadata == $meta and .source == $source and .system == $system and
-          (.out | startswith("/nix/store/") and endswith("-" + $meta.package + "-" + $meta.version))
-        ' "$directory/$system.json" > /dev/null || die "Invalid $system build result"
-      done
       release=$(find_release)
       if [[ $release == null ]]; then
         jq -n --arg tag "$tag" --arg source "$GITHUB_SHA" --arg name "$package $version" \
@@ -157,7 +173,7 @@ main() {
         echo "$stored" > "$work/publication.json"
         upload "$work/publication.json"
       fi
-      jq -e --argjson meta "$meta" 'del(.source) == $meta and (.source | test("^[0-9a-f]{40}$"))' \
+      jq -e --argjson meta "$meta" "$identity_filter identity == (\$meta | identity) and (.source | test(\"^[0-9a-f]{40}$\"))" \
         <<< "$stored" > /dev/null || die 'Release manifest disagrees with the current build inputs'
       source=$(jq -r .source <<< "$stored")
       for system in $(jq -r '.platforms[].system' <<< "$meta"); do
@@ -166,11 +182,10 @@ main() {
           missing=$(jq --arg system "$system" --argjson meta "$meta" \
             '. + [$meta.platforms[] | select(.system == $system)]' <<< "$missing")
         else
-          jq -e --argjson receipt "$receipt" --arg source "$source" '
-            .out == $receipt.out and .system == $receipt.system and
-            .metadata.version == $receipt.version and .metadata.fingerprint == $receipt.fingerprint and
-            $receipt.source == $source
-          ' "$directory/$system.json" > /dev/null || die "Published output changed for $system without a new release identity"
+          jq -e --argjson meta "$meta" --arg source "$source" --arg system "$system" '
+            .system == $system and .version == $meta.version and
+            .fingerprint == $meta.fingerprint and .source == $source
+          ' <<< "$receipt" > /dev/null || die "Invalid publication receipt for $system"
         fi
       done
       if [[ $(jq -r .draft <<< "$release") == false ]]; then
@@ -184,6 +199,13 @@ main() {
         > "$directory/plan.json"
       ;;
 
+    verify-built)
+      system=${SYSTEM:?}
+      release=$(find_release)
+      publication=$(asset publication.json)
+      verify_build
+      ;;
+
     publish)
       check_flox
       system=${SYSTEM:?}
@@ -193,14 +215,9 @@ main() {
       source=$(jq -r .source <<< "$publication")
       [[ $(git rev-parse HEAD) == "$source" ]] || die 'Publishing must use the original release commit'
       [[ -z $(git status --porcelain --untracked-files=no) ]] || die 'Publishing requires a clean checkout'
-      expected=$(nix eval --raw --impure --expr \
-        "(let pkgs = import ./nix/pinned-nixpkgs.nix { system = builtins.currentSystem; }; in import ./.flox/pkgs/$package.nix { inherit pkgs; }).outPath")
-      receipt=$(asset "$system.json")
+      verify_build
       if [[ $receipt != null ]]; then
-        jq -e --arg out "$expected" --arg source "$source" --arg system "$system" --argjson meta "$meta" '
-          .out == $out and .source == $source and .system == $system and
-          .version == $meta.version and .fingerprint == $meta.fingerprint
-        ' <<< "$receipt" > /dev/null || die 'Existing receipt does not match this build'
+        echo "$package ($system): published output is unchanged"
         return
       fi
       # Safe to repeat after a crash between publishing and saving the receipt.

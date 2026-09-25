@@ -13,18 +13,20 @@ permissions:
 env:
   NIX_CONFIG: 'extra-experimental-features = nix-command flakes'
 
-# Never interrupt uploads. Each main run reconciles durable release receipts,
-# so replacing a pending run does not lose changes from an earlier push.
 concurrency:
   group: packages-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  matrix:
+  prepare:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
     outputs:
-      builds: ${{ steps.matrix.outputs.builds }}
-      flox_version: ${{ steps.matrix.outputs.flox_version }}
+      platforms: ${{ steps.registry.outputs.platforms }}
+      flox_version: ${{ steps.registry.outputs.flox_version }}
+      plans: ${{ steps.plan.outputs.plans }}
+      pending: ${{ steps.plan.outputs.pending }}
     steps:
       - uses: actions/checkout@v4
       - name: Verify the shared nixpkgs pin is in the Flox catalog
@@ -32,160 +34,138 @@ jobs:
           curl --fail --silent --show-error --retry 3 \
             https://api.flox.dev/api/v1/catalog/info/base-catalog \
             --output "$RUNNER_TEMP/flox-catalog.json"
-          if ! jq -e --slurpfile lock flake.lock '
+          jq -e --slurpfile lock flake.lock '
             $lock[0].nodes.nixpkgs.locked as $pin |
             .base_url == ("https://github.com/" + $pin.owner + "/" + $pin.repo) and
             any(.scraped_pages[]; .rev == $pin.rev)
-          ' "$RUNNER_TEMP/flox-catalog.json" > /dev/null; then
-            echo '::error::The nixpkgs pin must be a revision in the Flox catalog.'
-            exit 1
-          fi
+          ' "$RUNNER_TEMP/flox-catalog.json" > /dev/null
       - name: Read the shared package registry
-        id: matrix
+        id: registry
         run: |
           {
-            echo "builds=$(jq -c '. as $config | {include: [.packages | keys[] as $package | $config.platforms[] + {package: $package}]}' .github/packages.json)"
+            echo "platforms=$(jq -c '{include: .platforms}' .github/packages.json)"
             echo "flox_version=$(jq -r .flox_version .github/packages.json)"
           } >> "$GITHUB_OUTPUT"
       - name: Test publication selection and recovery
         run: bash tests/publication.sh
-
-  build:
-    needs: matrix
-    name: Build ${{ matrix.package }} (${{ matrix.system }})
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.matrix.outputs.builds) }}
-    runs-on: ${{ matrix.runner }}
-    env:
-      NIX_SSL_CERT_FILE: ${{ endsWith(matrix.system, '-darwin') && '/etc/ssl/cert.pem' || '/etc/ssl/certs/ca-certificates.crt' }}
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - uses: flox/install-flox-action@1128abd73431089ab9d871c893b4e72a729354e1 # v2
-        with:
-          version: ${{ needs.matrix.outputs.flox_version }}
-      - name: Check formatting
-        if: matrix.system == 'x86_64-linux'
-        run: nix fmt -- --check flake.nix pkgs/*.nix nix/*.nix .flox/pkgs/*.nix
-      - name: Build and check the flake and Flox outputs
-        env:
-          PACKAGE: ${{ matrix.package }}
-          SYSTEM: ${{ matrix.system }}
-        run: bash scripts/publish-package.sh build "$RUNNER_TEMP/package-build/$PACKAGE"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: package-build-${{ matrix.package }}-${{ matrix.system }}
-          path: ${{ runner.temp }}/package-build/
-          if-no-files-found: error
-
-  checks:
-    name: Package checks
-    if: always()
-    needs: [matrix, build]
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Require all native builds and checks
-        env:
-          MATRIX: ${{ needs.matrix.result }}
-          BUILD: ${{ needs.build.result }}
-        run: '[[ "$MATRIX" == success && "$BUILD" == success ]]'
-
-  prepare:
-    needs: checks
-    if: >-
-      !cancelled() && needs.checks.result == 'success' &&
-      github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: write
-    outputs:
-      publish: ${{ steps.plan.outputs.publish }}
-      pending: ${{ steps.plan.outputs.pending }}
-      platforms: ${{ steps.plan.outputs.platforms }}
-      releases: ${{ steps.plan.outputs.releases }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: package-build-*
-          path: ${{ runner.temp }}/package-build
-          merge-multiple: true
-      - name: Compare built outputs with publication receipts
+      - uses: DeterminateSystems/nix-installer-action@v16
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+      - name: Reserve release identities and original source commits
         id: plan
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           for package in $(jq -r '.packages | keys[]' .github/packages.json); do
-            PACKAGE="$package" bash scripts/publish-package.sh prepare "$RUNNER_TEMP/package-build/$package"
+            directory="$RUNNER_TEMP/package-plan/$package"
+            mkdir -p "$directory"
+            nix eval --json --file nix/release.nix --apply "release: release { package = \"$package\"; }" > "$directory/metadata.json"
+            PACKAGE="$package" bash scripts/publish-package.sh prepare "$directory"
           done
-          platforms=$(jq -sc '{include: [.[].matrix[]]}' "$RUNNER_TEMP"/package-build/*/plan.json)
-          releases=$(jq -sc '{include: [.[] | select(.pending) | {package, source}]}' "$RUNNER_TEMP"/package-build/*/plan.json)
+          plans=$(jq -sc '.' "$RUNNER_TEMP"/package-plan/*/plan.json)
           {
-            echo "platforms=$platforms"
-            echo "releases=$releases"
-            echo "publish=$(jq '.include | length > 0' <<< "$platforms")"
-            echo "pending=$(jq '.include | length > 0' <<< "$releases")"
+            echo "plans=$plans"
+            echo "pending=$(jq 'any(.[]; .pending)' <<< "$plans")"
           } >> "$GITHUB_OUTPUT"
 
-  publish:
-    needs: [matrix, prepare]
-    if: needs.prepare.outputs.publish == 'true'
-    name: Publish ${{ matrix.package }} (${{ matrix.system }})
-    environment: flox
-    permissions:
-      contents: write
+  platform:
+    needs: prepare
+    name: Packages (${{ matrix.system }})
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.prepare.outputs.platforms) }}
     runs-on: ${{ matrix.runner }}
+    # PR checks use an environment without publishing secrets or branch restrictions.
+    environment: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && 'flox' || 'package-checks' }}
+    permissions:
+      contents: write
     env:
+      SYSTEM: ${{ matrix.system }}
       NIX_SSL_CERT_FILE: ${{ endsWith(matrix.system, '-darwin') && '/etc/ssl/cert.pem' || '/etc/ssl/certs/ca-certificates.crt' }}
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ matrix.source }}
           fetch-depth: 0
-      - name: Configure a tracked branch for Flox provenance
-        run: |
-          git switch -c flox-publish
-          git branch --set-upstream-to=origin/main flox-publish
+          persist-credentials: false
       - uses: flox/install-flox-action@1128abd73431089ab9d871c893b4e72a729354e1 # v2
         with:
-          version: ${{ needs.matrix.outputs.flox_version }}
-      - name: Publish, install, and record the verified platform output
+          version: ${{ needs.prepare.outputs.flox_version }}
+      - name: Check formatting
+        if: matrix.system == 'x86_64-linux'
+        run: nix fmt -- --check flake.nix pkgs/*.nix nix/*.nix .flox/pkgs/*.nix
+      - name: Check that unrelated changes preserve package versions
+        if: matrix.system == 'x86_64-linux'
+        run: bash tests/package-identity.sh
+      - name: Build and check every registered package
+        run: |
+          for package in $(jq -r '.packages | keys[]' .github/packages.json); do
+            PACKAGE="$package" bash scripts/publish-package.sh build "$RUNNER_TEMP/package-build/$package"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-build-${{ matrix.system }}
+          path: ${{ runner.temp }}/package-build/
+          if-no-files-found: error
+      - name: Compare built outputs and publish missing platform receipts
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         env:
+          PLANS: ${{ needs.prepare.outputs.plans }}
           FLOX_FLOXHUB_TOKEN: ${{ secrets.FLOX_FLOXHUB_TOKEN }}
           GH_TOKEN: ${{ github.token }}
-          PACKAGE: ${{ matrix.package }}
-          SYSTEM: ${{ matrix.system }}
-        run: bash scripts/publish-package.sh publish
+        run: |
+          for package in $(jq -r '.[] | select(.source != null) | .package' <<< "$PLANS"); do
+            git checkout --detach "$GITHUB_SHA"
+            directory="$RUNNER_TEMP/package-build/$package"
+            jq .metadata "$directory/$SYSTEM.json" > "$directory/metadata.json"
+            PACKAGE="$package" bash scripts/publish-package.sh verify-built "$directory"
+            pending=$(jq -r --arg package "$package" '.[] | select(.package == $package) | .pending' <<< "$PLANS")
+            if [[ $pending != true ]]; then
+              echo "$package ($SYSTEM): published output is unchanged"
+              continue
+            fi
+            source=$(jq -r --arg package "$package" '.[] | select(.package == $package) | .source' <<< "$PLANS")
+            git switch -C flox-publish "$source"
+            git branch --set-upstream-to=origin/main flox-publish
+            PACKAGE="$package" bash scripts/publish-package.sh publish "$directory"
+          done
+
+  checks:
+    name: Package checks
+    if: always()
+    needs: [prepare, platform]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require all native builds and checks
+        env:
+          PREPARE: ${{ needs.prepare.result }}
+          PLATFORM: ${{ needs.platform.result }}
+        run: '[[ "$PREPARE" == success && "$PLATFORM" == success ]]'
 
   release:
-    needs: [matrix, prepare, publish]
-    if: >-
-      !cancelled() && needs.prepare.outputs.pending == 'true' &&
-      (needs.publish.result == 'success' || needs.publish.result == 'skipped')
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.prepare.outputs.releases) }}
-    name: Release ${{ matrix.package }}
+    needs: [prepare, checks]
+    if: needs.prepare.outputs.pending == 'true' && needs.checks.result == 'success'
+    name: Complete package releases
     runs-on: ubuntu-24.04
     environment: flox
     permissions:
       contents: write
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ matrix.source }}
+          fetch-depth: 0
       - uses: flox/install-flox-action@1128abd73431089ab9d871c893b4e72a729354e1 # v2
         with:
-          version: ${{ needs.matrix.outputs.flox_version }}
-      - name: Verify four-platform resolution and complete the release
+          version: ${{ needs.prepare.outputs.flox_version }}
+      - name: Verify catalog resolution and complete pending releases
         env:
+          PLANS: ${{ needs.prepare.outputs.plans }}
           FLOX_FLOXHUB_TOKEN: ${{ secrets.FLOX_FLOXHUB_TOKEN }}
           GH_TOKEN: ${{ github.token }}
-          PACKAGE: ${{ matrix.package }}
-        run: bash scripts/publish-package.sh finish
+        run: |
+          for package in $(jq -r '.[] | select(.pending) | .package' <<< "$PLANS"); do
+            source=$(jq -r --arg package "$package" '.[] | select(.package == $package) | .source' <<< "$PLANS")
+            git checkout --detach "$source"
+            PACKAGE="$package" bash scripts/publish-package.sh finish
+          done

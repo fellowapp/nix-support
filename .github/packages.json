@@ -27,38 +27,19 @@
         "version"
       ],
       "version_prefix": "atlas version v",
-      "inputs": [
-        ".github/packages.json",
-        ".flox/pkgs/atlas.nix",
-        ".flox/env/manifest.toml",
-        ".flox/env/manifest.lock",
-        "flake.lock",
-        "nix/release.nix",
-        "nix/pinned-nixpkgs.nix",
-        "pkgs/atlas.nix",
-        "pkgs/atlas.json",
-        "scripts/publish-package.sh",
-        ".github/workflows/packages.yml"
-      ]
+      "initial_publication": {
+        "derivation_fingerprint": "19c7cf5f8c0e599627f4df239210ef04450ea95609ca1ec4c3b02b545a0e17c0",
+        "fingerprint": "b45fa1c13f6bc350e020da7b6e8257d7b900c3441fca60eb8a7418d962193800"
+      }
     },
     "debezium-server": {
       "version_file": "pkgs/debezium-server.json",
       "check": "debezium-server",
       "smoke_script": "tests/debezium-server.sh",
-      "inputs": [
-        ".github/packages.json",
-        ".flox/pkgs/debezium-server.nix",
-        ".flox/env/manifest.toml",
-        ".flox/env/manifest.lock",
-        "flake.lock",
-        "nix/release.nix",
-        "nix/pinned-nixpkgs.nix",
-        "pkgs/debezium-server.nix",
-        "pkgs/debezium-server.json",
-        "scripts/publish-package.sh",
-        ".github/workflows/packages.yml",
-        "tests/debezium-server.sh"
-      ]
+      "initial_publication": {
+        "derivation_fingerprint": "a4da93f1838f7e92301973d02bc14a90e72b1f53a5c2a75eb07c330214a663eb",
+        "fingerprint": "87e1e24bca3592c68f04f04dee8574480aa6edf44435a6115d20c15e89949b96"
+      }
     }
   }
 }

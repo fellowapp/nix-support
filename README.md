@@ -84,7 +84,10 @@ Every pull request and push to `main` builds and checks each registered package
 on `x86_64-linux`, `aarch64-linux`, `x86_64-darwin`, and `aarch64-darwin`. Pull
 requests never publish. On `main`, CI compares the resulting store paths with
 receipts attached to the corresponding GitHub release and publishes only missing
-platform outputs. The `flox` GitHub environment supplies `FLOX_FLOXHUB_TOKEN` to
+platform outputs. There is one build/publish job per platform, with all registered
+packages built on that runner before publishing from the same Nix store. A
+coordinator reserves draft releases before the builds; one final job completes
+them after every platform succeeds. The `flox` GitHub environment supplies `FLOX_FLOXHUB_TOKEN` to
 publishing and catalog-verification jobs.
 
 Both the flake and Flox recipe use **the nixpkgs commit in `flake.lock`**. The
@@ -99,11 +102,14 @@ commit and content hash; only the mirror URL changes. Update it with
 checks catalog membership before starting the native builds.
 
 Flox package versions use `1.2.0+fellow.<16-character-input-hash>` and tags use
-`atlas/v1.2.0+fellow.<same-hash>`. The hash covers the recipe, source hashes,
-nixpkgs lock, Flox wrapper/environment, and publishing configuration listed in
-the registry. Unrelated commits retain the same identity. Packaging changes
-can produce a new publication without changing Atlas's upstream version. The
-flake package retains the upstream version.
+`atlas/v1.2.0+fellow.<same-hash>`. The hash covers that package's upstream Nix
+derivations across the supported systems and its Flox wrapper. Adding another
+package, changing runner labels, or editing CI and smoke tests does not change
+its version. Dependency or packaging changes can produce a new publication
+without changing the upstream version. The flake retains the upstream version.
+The registry's `initial_publication` aliases preserve versions already uploaded
+under the old file-based hashing scheme, only while those exact derivations and
+wrappers remain unchanged. Do not update the aliases when upgrading packages.
 
 The `+fellow` suffix is SemVer build metadata, rather than a prerelease suffix.
 It identifies a build but does **not** define chronological version ordering.

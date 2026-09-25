@@ -3,13 +3,14 @@
   definition = config.packages.${package};
   upstream = builtins.fromJSON (builtins.readFile (../. + "/${definition.version_file}"));
   nixpkgs = (builtins.fromJSON (builtins.readFile ../flake.lock)).nodes.nixpkgs.locked;
-  inputs =
-    map (path: {
-      inherit path;
-      sha256 = builtins.hashString "sha256" (builtins.readFile (../. + "/${path}"));
-    })
-    definition.inputs;
-  fingerprint = builtins.hashString "sha256" (builtins.toJSON inputs);
+  derivationFingerprint = import ./package-fingerprint.nix {inherit package;};
+  # Preserve versions already uploaded before switching from file-based hashes.
+  # This alias applies only to the exact original set of native derivations.
+  initial = definition.initial_publication or null;
+  fingerprint =
+    if initial != null && initial.derivation_fingerprint == derivationFingerprint
+    then initial.fingerprint
+    else derivationFingerprint;
   version = "${upstream.version}+fellow.${builtins.substring 0 16 fingerprint}";
 in {
   inherit fingerprint version;

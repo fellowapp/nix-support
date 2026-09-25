@@ -66,6 +66,7 @@ meta=$(jq -n --slurpfile config "$root/.github/packages.json" '{
   package: "atlas", version: "1.2.0+fellow.test", fingerprint: "test",
   tag: "atlas/v1.2.0+fellow.test", platforms: $config[0].platforms
 }')
+echo "$meta" > "$work/build/metadata.json"
 for system in $(jq -r '.platforms[].system' <<< "$meta"); do
   jq -n --argjson metadata "$meta" --arg system "$system" --arg source "$GITHUB_SHA" \
     '{metadata: $metadata, system: $system, source: $source, out: ("/nix/store/" + $system + "-atlas-" + $metadata.version)}' \
@@ -120,9 +121,13 @@ prepare
 jq -e '(.pending | not) and (.matrix | length == 0)' "$work/build/plan.json" > /dev/null
 
 # An output mismatch must never be silently skipped or overwrite a release.
+SYSTEM=x86_64-linux bash "$root/scripts/publish-package.sh" verify-built "$work/build"
 cp "$work/build/x86_64-linux.json" "$work/good.json"
 jq '.out = "/nix/store/changed-atlas-1.2.0+fellow.test"' "$work/good.json" > "$work/build/x86_64-linux.json"
-expect_failure
+if SYSTEM=x86_64-linux bash "$root/scripts/publish-package.sh" verify-built "$work/build" > "$work/failure.log" 2>&1; then
+  echo 'Expected output mismatch to fail' >&2
+  exit 1
+fi
 cp "$work/good.json" "$work/build/x86_64-linux.json"
 
 # A published release with missing receipts is corruption, not success.

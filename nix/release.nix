@@ -11,7 +11,7 @@
     if initial != null && initial.derivation_fingerprint == derivationFingerprint
     then initial.fingerprint
     else derivationFingerprint;
-  version = "${upstream.version}+fellow.${builtins.substring 0 16 fingerprint}";
+  version = "${upstream.version}+fellow.${builtins.substring 0 6 fingerprint}";
 in {
   inherit fingerprint version;
   schema = 1;

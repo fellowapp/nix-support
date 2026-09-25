@@ -79,6 +79,8 @@ Atlas and Debezium Server are published automatically to the `fellowapp` Flox
 catalog. The shared [Packages workflow](.github/workflows/packages.yml) reads
 [the package registry](.github/packages.json); additional packages will use the
 same workflow as they are migrated.
+See [remaining packaging blockers](docs/packaging-status.md) for the migration
+audit and the distinction between evaluation, build, and runtime coverage.
 
 Every pull request and push to `main` builds and checks each registered package
 on `x86_64-linux`, `aarch64-linux`, `x86_64-darwin`, and `aarch64-darwin`. Pull
@@ -101,7 +103,7 @@ commit and content hash; only the mirror URL changes. Update it with
 `nix flake update nixpkgs`; there is no second nixpkgs pin to synchronize. CI
 checks catalog membership before starting the native builds.
 
-Flox package versions use `1.2.0+fellow.<16-character-input-hash>` and tags use
+Flox package versions use `1.2.0+fellow.<6-character-input-hash>` and tags use
 `atlas/v1.2.0+fellow.<same-hash>`. The hash covers that package's upstream Nix
 derivations across the supported systems and its Flox wrapper. Adding another
 package, changing runner labels, or editing CI and smoke tests does not change
@@ -110,6 +112,9 @@ without changing the upstream version. The flake retains the upstream version.
 The registry's `initial_publication` aliases preserve versions already uploaded
 under the old file-based hashing scheme, only while those exact derivations and
 wrappers remain unchanged. Do not update the aliases when upgrading packages.
+Receipts retain the full fingerprint and reject conflicting identities even if
+their six-character suffixes collide. Existing 16-character releases remain
+available; the shorter format creates new versions and matching namespaced tags.
 
 The `+fellow` suffix is SemVer build metadata, rather than a prerelease suffix.
 It identifies a build but does **not** define chronological version ordering.

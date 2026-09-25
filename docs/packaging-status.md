@@ -21,8 +21,8 @@ not a separate package to publish.
 | `debezium-connector-mysql` | Recipe uses `name` only, with no explicit `pname`/`version`. Ships connector JARs, not a CLI. | Add explicit version/name metadata and a JAR/layout smoke check. Verify that Flox exposes the connector directory at the documented path. |
 | `debezium-connector-vitess` | Same missing `pname`/`version` and data-only output issue as the MySQL connector. | Add metadata and a JAR/layout check. |
 | `debezium-connector-planetscale` | Has version metadata, but its upstream tag additionally contains `PS20241031.1`. Ships a connector JAR, not a CLI. | Preserve the full upstream tag as a pinned source input and add a JAR/layout check. No additional recipe blocker identified. |
-| `dolt` | Already has pinned binaries for all four systems and explicit version metadata. | Add the normal Flox integration and a `dolt version` check. No additional recipe blocker identified; native build/install checks remain to be run. |
-| `svix-server` | No concrete evaluation blocker identified. Builds Rust from source; upstream tests are disabled because they require a database. | Add the normal integration and a CLI smoke check; verify native builds and budget for compilation. A CLI check will not establish PostgreSQL/service correctness. |
+| `dolt` | No longer needed locally: consumers will migrate to the upstream package. | Keep the recipe for existing consumers; exclude it from Flox publishing. |
+| `svix-server` | No longer needed locally: consumers will migrate to the upstream package. | Keep the recipe for existing consumers; exclude it from Flox publishing. |
 
 ## Vitess upstream verification
 
@@ -69,6 +69,10 @@ inspection, not a newly run MySQL integration test.
 - Source builds and large Java closures can increase job time and disk use.
   One runner per platform now reuses its Nix store across packages and publishing.
 
-Dolt and the connector packages have the fewest identified prerequisites.
-RustFS, Terragrunt, and Cursor are excluded from the next rollout because their
-consumers can migrate upstream. Their local recipes remain for compatibility.
+Five packages remain in the publishing rollout: the MySQL, Vitess, and
+PlanetScale Debezium connectors, Vitess, and Elasticsearch. The connector
+packages have the fewest identified prerequisites.
+
+RustFS, Terragrunt, Cursor, Dolt, and Svix Server are excluded because their
+consumers can migrate upstream. Their local recipes remain for compatibility;
+do not add them to the Flox publishing registry.

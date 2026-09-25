@@ -27,6 +27,19 @@ jobs:
       flox_version: ${{ steps.matrix.outputs.flox_version }}
     steps:
       - uses: actions/checkout@v4
+      - name: Verify the shared nixpkgs pin is in the Flox catalog
+        run: |
+          curl --fail --silent --show-error --retry 3 \
+            https://api.flox.dev/api/v1/catalog/info/base-catalog \
+            --output "$RUNNER_TEMP/flox-catalog.json"
+          if ! jq -e --slurpfile lock flake.lock '
+            $lock[0].nodes.nixpkgs.locked as $pin |
+            .base_url == ("https://github.com/" + $pin.owner + "/" + $pin.repo) and
+            any(.scraped_pages[]; .rev == $pin.rev)
+          ' "$RUNNER_TEMP/flox-catalog.json" > /dev/null; then
+            echo '::error::The nixpkgs pin must be a revision in the Flox catalog.'
+            exit 1
+          fi
       - name: Read the shared package registry
         id: matrix
         run: |

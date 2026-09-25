@@ -92,8 +92,11 @@ Flox wrapper imports that pin explicitly, including for local builds. CI also
 passes the same revision to Flox's `--nixpkgs-url` option so the published build
 provenance agrees. This option is supported but hidden in Flox 1.17.0; the CLI
 version is pinned in the registry and should be upgraded with the build checks.
-Update nixpkgs with `nix flake update nixpkgs`; there is no second nixpkgs pin to
-synchronize.
+The flake tracks Flox's `unstable` mirror because publishing requires a revision
+listed in the Flox catalog. The initial migration retains the existing nixpkgs
+commit and content hash; only the mirror URL changes. Update it with
+`nix flake update nixpkgs`; there is no second nixpkgs pin to synchronize. CI
+checks catalog membership before starting the native builds.
 
 Flox package versions use `1.2.0+fellow.<16-character-input-hash>` and tags use
 `atlas/v1.2.0+fellow.<same-hash>`. The hash covers the recipe, source hashes,

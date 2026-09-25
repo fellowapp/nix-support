@@ -2,7 +2,9 @@
   description = "A Nix flake providing easy access to useful packages that might not be available or up-to-date in the main nixpkgs repository.";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
+    # Flox publishes against catalog pages from this mirror. flake.lock is the
+    # shared pin for flake builds and Flox builds/publication.
+    nixpkgs.url = "github:flox/nixpkgs?ref=unstable";
     flake-utils.url = "github:numtide/flake-utils";
   };
 

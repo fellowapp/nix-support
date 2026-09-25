@@ -17,6 +17,19 @@ cat > "$work/bin/gh" <<'MOCK'
 set -euo pipefail
 [[ ${FAIL_API:-false} == false ]] || exit 42
 case "$1 $2" in
+  'api --method')
+    if [[ $4 == *'/assets?name='* ]]; then
+      name=${4##*name=}
+      [[ ! -e $MOCK_STATE/$name ]] || exit 1
+      cp "$6" "$MOCK_STATE/$name"
+      jq --arg name "$name" '.assets += [{id: $name, name: $name}]' "$MOCK_STATE/release.json" > "$MOCK_STATE/new.json"
+      mv "$MOCK_STATE/new.json" "$MOCK_STATE/release.json"
+      echo '{}'
+    else
+      jq '. + {id: 1, assets: []}' "$6" > "$MOCK_STATE/release.json"
+      cat "$MOCK_STATE/release.json"
+    fi
+    ;;
   'api --paginate')
     if [[ -e $MOCK_STATE/release.json ]]; then
       jq '[[.]]' "$MOCK_STATE/release.json"

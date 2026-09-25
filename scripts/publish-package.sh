@@ -12,7 +12,7 @@ emit() {
   if [[ -n ${GITHUB_OUTPUT:-} ]]; then echo "$1=$2" >> "$GITHUB_OUTPUT"; fi
 }
 find_release() {
-  gh api --paginate --slurp "repos/$repo/releases?per_page=100" |
+  gh api --paginate --slurp "repos/$repo/releases?per_page=100" -H 'Cache-Control: no-cache' |
     jq --arg tag "$tag" '[.[][] | select(.tag_name == $tag)] | first // null'
 }
 asset() {
@@ -24,7 +24,13 @@ asset() {
     echo null
   fi
 }
-upload() { gh release upload "$tag" "$1" --repo "$repo"; }
+upload() {
+  local id name
+  id=$(jq -er .id <<< "$release")
+  name=$(basename "$1")
+  gh api --method POST "https://uploads.github.com/repos/$repo/releases/$id/assets?name=$name" \
+    --input "$1" -H 'Content-Type: application/json' > /dev/null
+}
 
 smoke() {
   local actual
@@ -131,9 +137,10 @@ main() {
       done
       release=$(find_release)
       if [[ $release == null ]]; then
-        gh release create "$tag" --repo "$repo" --draft --target "$GITHUB_SHA" \
-          --title "$package $version" --notes "Publishing $package on all four platforms."
-        release=$(find_release)
+        jq -n --arg tag "$tag" --arg source "$GITHUB_SHA" --arg name "$package $version" \
+          '{tag_name: $tag, target_commitish: $source, name: $name, draft: true}' > "$work/create.json"
+        # Use the write response: GitHub's listing can lag behind draft creation.
+        release=$(gh api --method POST "repos/$repo/releases" --input "$work/create.json")
       fi
       stored=$(asset publication.json)
       if [[ $stored == null ]]; then

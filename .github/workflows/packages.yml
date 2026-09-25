@@ -1,0 +1,166 @@
+name: Packages
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Never interrupt uploads. Each main run reconciles durable release receipts,
+# so replacing a pending run does not lose changes from an earlier push.
+concurrency:
+  group: packages-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  matrix:
+    runs-on: ubuntu-24.04
+    outputs:
+      builds: ${{ steps.matrix.outputs.builds }}
+      flox_version: ${{ steps.matrix.outputs.flox_version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read the shared package registry
+        id: matrix
+        run: |
+          {
+            echo "builds=$(jq -c '. as $config | {include: [.packages | keys[] as $package | $config.platforms[] + {package: $package}]}' .github/packages.json)"
+            echo "flox_version=$(jq -r .flox_version .github/packages.json)"
+          } >> "$GITHUB_OUTPUT"
+      - name: Test publication selection and recovery
+        run: bash tests/publication.sh
+
+  build:
+    needs: matrix
+    name: Build ${{ matrix.package }} (${{ matrix.system }})
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.matrix.outputs.builds) }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: flox/install-flox-action@1128abd73431089ab9d871c893b4e72a729354e1 # v2
+        with:
+          version: ${{ needs.matrix.outputs.flox_version }}
+      - name: Check formatting
+        if: matrix.system == 'x86_64-linux'
+        run: nix fmt -- --check flake.nix pkgs/*.nix nix/*.nix .flox/pkgs/*.nix
+      - name: Build and check the flake and Flox outputs
+        env:
+          PACKAGE: ${{ matrix.package }}
+          SYSTEM: ${{ matrix.system }}
+        run: bash scripts/publish-package.sh build "$RUNNER_TEMP/package-build/$PACKAGE"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-build-${{ matrix.package }}-${{ matrix.system }}
+          path: ${{ runner.temp }}/package-build/
+          if-no-files-found: error
+
+  checks:
+    name: Package checks
+    if: always()
+    needs: [matrix, build]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require all native builds and checks
+        env:
+          MATRIX: ${{ needs.matrix.result }}
+          BUILD: ${{ needs.build.result }}
+        run: '[[ "$MATRIX" == success && "$BUILD" == success ]]'
+
+  prepare:
+    needs: checks
+    if: >-
+      !cancelled() && needs.checks.result == 'success' &&
+      github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    outputs:
+      publish: ${{ steps.plan.outputs.publish }}
+      pending: ${{ steps.plan.outputs.pending }}
+      platforms: ${{ steps.plan.outputs.platforms }}
+      releases: ${{ steps.plan.outputs.releases }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: package-build-*
+          path: ${{ runner.temp }}/package-build
+          merge-multiple: true
+      - name: Compare built outputs with publication receipts
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for package in $(jq -r '.packages | keys[]' .github/packages.json); do
+            PACKAGE="$package" bash scripts/publish-package.sh prepare "$RUNNER_TEMP/package-build/$package"
+          done
+          platforms=$(jq -sc '{include: [.[].matrix[]]}' "$RUNNER_TEMP"/package-build/*/plan.json)
+          releases=$(jq -sc '{include: [.[] | select(.pending) | {package, source}]}' "$RUNNER_TEMP"/package-build/*/plan.json)
+          {
+            echo "platforms=$platforms"
+            echo "releases=$releases"
+            echo "publish=$(jq '.include | length > 0' <<< "$platforms")"
+            echo "pending=$(jq '.include | length > 0' <<< "$releases")"
+          } >> "$GITHUB_OUTPUT"
+
+  publish:
+    needs: [matrix, prepare]
+    if: needs.prepare.outputs.publish == 'true'
+    name: Publish ${{ matrix.package }} (${{ matrix.system }})
+    environment: flox
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.platforms) }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.source }}
+      - uses: flox/install-flox-action@1128abd73431089ab9d871c893b4e72a729354e1 # v2
+        with:
+          version: ${{ needs.matrix.outputs.flox_version }}
+      - name: Publish, install, and record the verified platform output
+        env:
+          FLOX_FLOXHUB_TOKEN: ${{ secrets.FLOX_FLOXHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          PACKAGE: ${{ matrix.package }}
+          SYSTEM: ${{ matrix.system }}
+        run: bash scripts/publish-package.sh publish
+
+  release:
+    needs: [matrix, prepare, publish]
+    if: >-
+      !cancelled() && needs.prepare.outputs.pending == 'true' &&
+      (needs.publish.result == 'success' || needs.publish.result == 'skipped')
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.releases) }}
+    name: Release ${{ matrix.package }}
+    runs-on: ubuntu-24.04
+    environment: flox
+    permissions:
+      contents: write
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.source }}
+      - uses: flox/install-flox-action@1128abd73431089ab9d871c893b4e72a729354e1 # v2
+        with:
+          version: ${{ needs.matrix.outputs.flox_version }}
+      - name: Verify four-platform resolution and complete the release
+        env:
+          FLOX_FLOXHUB_TOKEN: ${{ secrets.FLOX_FLOXHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          PACKAGE: ${{ matrix.package }}
+        run: bash scripts/publish-package.sh finish

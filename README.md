@@ -73,39 +73,78 @@ nix run github:fellowapp/nix-support#elasticsearch8
 nix run github:fellowapp/nix-support#atlas
 ```
 
-### Flox Catalog (Atlas Pilot)
+### Flox catalog and CI publishing
 
-Atlas also has a Flox Nix expression build, which reuses `pkgs/atlas.nix`.
-The existing `github:fellowapp/nix-support#atlas` interface remains supported.
-Flox supplies its own nixpkgs package set, so its build may have a different
-store path from the flake build pinned by `flake.lock`.
+Atlas is the first package published automatically to the `fellowapp` Flox
+catalog. The shared [Packages workflow](.github/workflows/packages.yml) reads
+[the package registry](.github/packages.json); additional packages will use the
+same workflow as they are migrated.
 
-To build locally, first ensure the Flox environment and package expression are
-tracked by Git, then run:
+Every pull request and push to `main` builds and checks each registered package
+on `x86_64-linux`, `aarch64-linux`, `x86_64-darwin`, and `aarch64-darwin`. Pull
+requests never publish. On `main`, CI compares the resulting store paths with
+receipts attached to the corresponding GitHub release and publishes only missing
+platform outputs. The `flox` GitHub environment supplies `FLOX_FLOXHUB_TOKEN` to
+publishing and catalog-verification jobs.
+
+Both the flake and Flox recipe use **the nixpkgs commit in `flake.lock`**. The
+Flox wrapper imports that pin explicitly, including for local builds. CI also
+passes the same revision to Flox's `--nixpkgs-url` option so the published build
+provenance agrees. This option is supported but hidden in Flox 1.17.0; the CLI
+version is pinned in the registry and should be upgraded with the build checks.
+Update nixpkgs with `nix flake update nixpkgs`; there is no second nixpkgs pin to
+synchronize.
+
+Flox package versions use `1.2.0+fellow.<16-character-input-hash>` and tags use
+`atlas/v1.2.0+fellow.<same-hash>`. The hash covers the recipe, source hashes,
+nixpkgs lock, Flox wrapper/environment, and publishing configuration listed in
+the registry. Unrelated commits retain the same identity. Packaging changes
+can produce a new publication without changing Atlas's upstream version. The
+flake package retains the upstream version.
+
+The `+fellow` suffix is SemVer build metadata, rather than a prerelease suffix.
+It identifies a build but does **not** define chronological version ordering.
+Before completing a GitHub release, CI checks that both exact-version and
+unpinned installations resolve to the expected store paths on all four systems.
+If the catalog selects a different build, CI fails and leaves the release draft
+for investigation rather than claiming it is the default version.
+
+Each release has a `publication.json` manifest and one verified receipt per
+platform. Partial uploads leave a draft; later pushes or a manual run of the
+Packages workflow on `main` resume missing work from the original source commit.
+If uploads succeeded but final verification failed, a retry only repeats that
+verification. GitHub API failures and receipt mismatches fail the job. Releases
+are completed only after all four platforms pass; catalog uploads themselves
+are not atomic. Build artifacts are temporary, while release receipts are the
+durable publication record. Do not delete or edit those receipts.
+
+After publishing, members of the Flox organization can install Atlas with:
+
+```bash
+flox install fellowapp/atlas
+```
+
+The release notes include the exact version command for reproducible installs.
+Existing Flox environments retain their lock until upgraded.
+
+For a local build, ensure the recipe and its shared inputs are tracked by Git:
 
 ```bash
 flox build atlas
 ./result-atlas/bin/atlas version
 ```
 
-Publishing is a separate, manual step. Once these changes are committed and
-pushed, an authorized member of the `fellowapp` Flox organization can run:
+`result` and `result-*` (including build logs) are ignored by Git. For the same
+build and smoke checks used by CI:
 
 ```bash
-flox publish --org fellowapp atlas
+export PACKAGE=atlas
+export SYSTEM=$(nix eval --raw --impure --expr builtins.currentSystem)
+bash scripts/publish-package.sh build /tmp/atlas-build
 ```
 
-This must be run on each OS/architecture that needs a prebuilt package.
-No automatic publishing is configured. After Atlas has been published for
-their platform, organization members can install the cached package with:
+Release-recovery checks can be run without credentials or network access:
 
 ```bash
-flox install fellowapp/atlas
-```
-
-Or add it to an existing Flox environment's manifest:
-
-```toml
-[install]
-atlas.pkg-path = "fellowapp/atlas"
+bash tests/publication.sh
 ```

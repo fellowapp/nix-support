@@ -1,0 +1,45 @@
+{
+  "flox_version": "1.17.0",
+  "platforms": [
+    {
+      "system": "x86_64-linux",
+      "runner": "ubuntu-24.04"
+    },
+    {
+      "system": "aarch64-linux",
+      "runner": "ubuntu-24.04-arm"
+    },
+    {
+      "system": "x86_64-darwin",
+      "runner": "macos-15-intel"
+    },
+    {
+      "system": "aarch64-darwin",
+      "runner": "macos-15"
+    }
+  ],
+  "packages": {
+    "atlas": {
+      "version_file": "pkgs/atlas.json",
+      "check": "atlas-version",
+      "smoke_program": "bin/atlas",
+      "smoke_args": [
+        "version"
+      ],
+      "version_prefix": "atlas version v",
+      "inputs": [
+        ".github/packages.json",
+        ".flox/pkgs/atlas.nix",
+        ".flox/env/manifest.toml",
+        ".flox/env/manifest.lock",
+        "flake.lock",
+        "nix/release.nix",
+        "nix/pinned-nixpkgs.nix",
+        "pkgs/atlas.nix",
+        "pkgs/atlas.json",
+        "scripts/publish-package.sh",
+        ".github/workflows/packages.yml"
+      ]
+    }
+  }
+}

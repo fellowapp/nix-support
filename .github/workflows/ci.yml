@@ -18,7 +18,7 @@ jobs:
         uses: DeterminateSystems/nix-installer-action@v16
 
       - name: Check formatting
-        run: nix fmt flake.nix pkgs/*.nix -- --check
+        run: nix fmt -- --check flake.nix pkgs/*.nix nix/*.nix .flox/pkgs/*.nix
 
       - name: Run nix flake check
         run: nix flake check

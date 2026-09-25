@@ -1,0 +1,25 @@
+{package}: let
+  config = builtins.fromJSON (builtins.readFile ../.github/packages.json);
+  definition = config.packages.${package};
+  upstream = builtins.fromJSON (builtins.readFile (../. + "/${definition.version_file}"));
+  nixpkgs = (builtins.fromJSON (builtins.readFile ../flake.lock)).nodes.nixpkgs.locked;
+  inputs =
+    map (path: {
+      inherit path;
+      sha256 = builtins.hashString "sha256" (builtins.readFile (../. + "/${path}"));
+    })
+    definition.inputs;
+  fingerprint = builtins.hashString "sha256" (builtins.toJSON inputs);
+  version = "${upstream.version}+fellow.${builtins.substring 0 16 fingerprint}";
+in {
+  inherit fingerprint version;
+  schema = 1;
+  inherit package;
+  inherit (definition) check smoke_program smoke_args version_prefix;
+  catalog = "fellowapp";
+  upstream_version = upstream.version;
+  tag = "${package}/v${version}";
+  inherit (config) flox_version platforms;
+  nixpkgs_rev = nixpkgs.rev;
+  nixpkgs_url = "https://github.com/${nixpkgs.owner}/${nixpkgs.repo}?rev=${nixpkgs.rev}";
+}

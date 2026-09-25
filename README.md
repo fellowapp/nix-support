@@ -72,3 +72,40 @@ You can also run the packages directly:
 nix run github:fellowapp/nix-support#elasticsearch8
 nix run github:fellowapp/nix-support#atlas
 ```
+
+### Flox Catalog (Atlas Pilot)
+
+Atlas also has a Flox Nix expression build, which reuses `pkgs/atlas.nix`.
+The existing `github:fellowapp/nix-support#atlas` interface remains supported.
+Flox supplies its own nixpkgs package set, so its build may have a different
+store path from the flake build pinned by `flake.lock`.
+
+To build locally, first ensure the Flox environment and package expression are
+tracked by Git, then run:
+
+```bash
+flox build atlas
+./result-atlas/bin/atlas version
+```
+
+Publishing is a separate, manual step. Once these changes are committed and
+pushed, an authorized member of the `fellowapp` Flox organization can run:
+
+```bash
+flox publish --org fellowapp atlas
+```
+
+This must be run on each OS/architecture that needs a prebuilt package.
+No automatic publishing is configured. After Atlas has been published for
+their platform, organization members can install the cached package with:
+
+```bash
+flox install fellowapp/atlas
+```
+
+Or add it to an existing Flox environment's manifest:
+
+```toml
+[install]
+atlas.pkg-path = "fellowapp/atlas"
+```

@@ -1,5 +1,6 @@
 {pkgs}: let
-  version = "3.1.1.Final";
+  source = builtins.fromJSON (builtins.readFile ./debezium-server.json);
+  inherit (source) version;
 in
   pkgs.stdenv.mkDerivation rec {
     # Use 'rec' for easier self-references if needed later
@@ -8,8 +9,7 @@ in
 
     src = fetchTarball {
       url = "https://repo1.maven.org/maven2/io/debezium/debezium-server-dist/${version}/debezium-server-dist-${version}.tar.gz";
-      # Replace this with the actual SHA256 after the first build attempt
-      sha256 = "1cl55qr9p2zhgiay1rlx93hphny6fqjrlcx5r07zv52i29xy8k20";
+      sha256 = source.sha256;
     };
 
     nativeBuildInputs = [pkgs.makeWrapper];

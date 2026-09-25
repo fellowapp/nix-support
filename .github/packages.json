@@ -40,6 +40,25 @@
         "scripts/publish-package.sh",
         ".github/workflows/packages.yml"
       ]
+    },
+    "debezium-server": {
+      "version_file": "pkgs/debezium-server.json",
+      "check": "debezium-server",
+      "smoke_script": "tests/debezium-server.sh",
+      "inputs": [
+        ".github/packages.json",
+        ".flox/pkgs/debezium-server.nix",
+        ".flox/env/manifest.toml",
+        ".flox/env/manifest.lock",
+        "flake.lock",
+        "nix/release.nix",
+        "nix/pinned-nixpkgs.nix",
+        "pkgs/debezium-server.nix",
+        "pkgs/debezium-server.json",
+        "scripts/publish-package.sh",
+        ".github/workflows/packages.yml",
+        "tests/debezium-server.sh"
+      ]
     }
   }
 }

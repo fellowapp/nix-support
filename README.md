@@ -75,7 +75,7 @@ nix run github:fellowapp/nix-support#atlas
 
 ### Flox catalog and CI publishing
 
-Atlas is the first package published automatically to the `fellowapp` Flox
+Atlas and Debezium Server are published automatically to the `fellowapp` Flox
 catalog. The shared [Packages workflow](.github/workflows/packages.yml) reads
 [the package registry](.github/packages.json); additional packages will use the
 same workflow as they are migrated.
@@ -121,10 +121,15 @@ are completed only after all four platforms pass; catalog uploads themselves
 are not atomic. Build artifacts are temporary, while release receipts are the
 durable publication record. Do not delete or edit those receipts.
 
-After publishing, members of the Flox organization can install Atlas with:
+Debezium Server checks validate the version embedded in its core JAR, the runner
+JAR, and the packaged launcher with its native JRE. They do not start connectors
+or require an external database or message broker.
+
+After publishing, members of the Flox organization can install the packages with:
 
 ```bash
 flox install fellowapp/atlas
+flox install fellowapp/debezium-server
 ```
 
 The release notes include the exact version command for reproducible installs.

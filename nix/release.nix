@@ -15,7 +15,11 @@ in {
   inherit fingerprint version;
   schema = 1;
   inherit package;
-  inherit (definition) check smoke_program smoke_args version_prefix;
+  inherit (definition) check;
+  smoke_script = definition.smoke_script or null;
+  smoke_program = definition.smoke_program or null;
+  smoke_args = definition.smoke_args or [];
+  version_prefix = definition.version_prefix or "";
   catalog = "fellowapp";
   upstream_version = upstream.version;
   tag = "${package}/v${version}";

@@ -33,6 +33,12 @@ upload() {
 }
 
 smoke() {
+  local script
+  script=$(jq -r '.smoke_script // empty' <<< "$meta")
+  if [[ -n $script ]]; then
+    bash "$script" "$1" "$upstream"
+    return
+  fi
   local actual
   local args=() argument
   while IFS= read -r argument; do args+=("$argument"); done < <(jq -r '.smoke_args[]' <<< "$meta")

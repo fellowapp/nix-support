@@ -44,6 +44,14 @@
         };
 
         checks = {
+          debezium-server =
+            pkgs.runCommand "check-debezium-server" {
+              nativeBuildInputs = [pkgs.unzip];
+            } ''
+              bash ${./tests/debezium-server.sh} ${customPkgs.debezium-server} ${customPkgs.debezium-server.version}
+              touch $out
+            '';
+
           debezium-structure = pkgs.runCommand "check-debezium-structure" {} ''
             if [ ! -d ${customPkgs.debezium-connector-mysql}/debezium ]; then
               echo "✗ debezium folder does not exist in the package"

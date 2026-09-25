@@ -44,6 +44,8 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(needs.matrix.outputs.builds) }}
     runs-on: ${{ matrix.runner }}
+    env:
+      NIX_SSL_CERT_FILE: ${{ runner.os == 'macOS' && '/etc/ssl/cert.pem' || '/etc/ssl/certs/ca-certificates.crt' }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -124,6 +126,8 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(needs.prepare.outputs.platforms) }}
     runs-on: ${{ matrix.runner }}
+    env:
+      NIX_SSL_CERT_FILE: ${{ runner.os == 'macOS' && '/etc/ssl/cert.pem' || '/etc/ssl/certs/ca-certificates.crt' }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4

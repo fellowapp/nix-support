@@ -1,7 +1,13 @@
 {pkgs}: let
   version = "2.3.5";
-  platform = if pkgs.stdenv.hostPlatform.isDarwin then "darwin" else "linux";
-  arch = if pkgs.stdenv.hostPlatform.isAarch64 then "arm64" else "amd64";
+  platform =
+    if pkgs.stdenv.hostPlatform.isDarwin
+    then "darwin"
+    else "linux";
+  arch =
+    if pkgs.stdenv.hostPlatform.isAarch64
+    then "arm64"
+    else "amd64";
   hashes = {
     darwin-amd64 = "sha256-/8/N3gDBS9Q8StfHG2IQ+/szcXuyNxI5jLLTbPbcph8=";
     darwin-arm64 = "sha256-rR43cKzLt+igWQaSKOrSK99vJ1kTEhJFG0T1GGYbjkA=";

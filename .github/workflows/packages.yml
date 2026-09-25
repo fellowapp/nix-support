@@ -10,6 +10,9 @@ on:
 permissions:
   contents: read
 
+env:
+  NIX_CONFIG: 'extra-experimental-features = nix-command flakes'
+
 # Never interrupt uploads. Each main run reconciles durable release receipts,
 # so replacing a pending run does not lose changes from an earlier push.
 concurrency:

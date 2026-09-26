@@ -18,67 +18,30 @@ defaults:
   run:
     shell: bash
 
+# Serialize main publication; cancel superseded PR checks.
 concurrency:
   group: packages-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  prepare:
-    runs-on: ubuntu-24.04
-    outputs:
-      platforms: ${{ steps.matrix.outputs.platforms }}
-      systems: ${{ steps.matrix.outputs.systems }}
-      nixpkgs_url: ${{ steps.matrix.outputs.nixpkgs_url }}
-      publish: ${{ steps.publication.outputs.publish }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Verify the shared nixpkgs pin is in the Flox catalog
-        run: |
-          curl --fail --silent --show-error --retry 3 \
-            https://api.flox.dev/api/v1/catalog/info/base-catalog \
-            --output "$RUNNER_TEMP/flox-catalog.json"
-          jq -e --slurpfile lock flake.lock '
-            $lock[0].nodes.nixpkgs.locked as $pin |
-            .base_url == ("https://github.com/" + $pin.owner + "/" + $pin.repo) and
-            any(.scraped_pages[]; .rev == $pin.rev)
-          ' "$RUNNER_TEMP/flox-catalog.json" > /dev/null
-      - uses: DeterminateSystems/nix-installer-action@v16
-      - name: Map supported Nix systems to CI runners
-        id: matrix
-        run: |
-          systems=$(nix eval --json --file nix/systems.nix)
-          platforms=$(jq -nc --argjson systems "$systems" '
-            {"x86_64-linux": "ubuntu-24.04", "aarch64-linux": "ubuntu-24.04-arm",
-             "aarch64-darwin": "macos-15"} as $runners |
-            {include: [$systems[] | {system: ., runner: $runners[.]}]}
-          ')
-          url=$(jq -r '.nodes.nixpkgs.locked | "https://github.com/" + .owner + "/" + .repo + "?rev=" + .rev' flake.lock)
-          {
-            echo "platforms=$platforms"
-            echo "systems=$systems"
-            echo "nixpkgs_url=$url"
-          } >> "$GITHUB_OUTPUT"
-      - name: Publish only from the current main commit
-        id: publication
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          head=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)
-          echo "publish=$([[ $head == "$GITHUB_SHA" ]] && echo true || echo false)" >> "$GITHUB_OUTPUT"
-
   platform:
-    needs: prepare
     name: Packages (${{ matrix.system }})
     strategy:
       fail-fast: false
-      matrix: ${{ fromJSON(needs.prepare.outputs.platforms) }}
+      # Keep these systems aligned with nix/systems.nix.
+      matrix:
+        include:
+          - system: x86_64-linux
+            runner: ubuntu-24.04
+          - system: aarch64-linux
+            runner: ubuntu-24.04-arm
+          - system: aarch64-darwin
+            runner: macos-15
     runs-on: ${{ matrix.runner }}
     # PR checks use an environment without publishing secrets or branch restrictions.
-    environment: ${{ needs.prepare.outputs.publish == 'true' && 'flox' || 'package-checks' }}
+    environment: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && 'flox' || 'package-checks' }}
     env:
       SYSTEM: ${{ matrix.system }}
-      NIXPKGS_URL: ${{ needs.prepare.outputs.nixpkgs_url }}
       NIX_SSL_CERT_FILE: ${{ endsWith(matrix.system, '-darwin') && '/etc/ssl/cert.pem' || '/etc/ssl/certs/ca-certificates.crt' }}
     timeout-minutes: 60
     steps:
@@ -94,7 +57,9 @@ jobs:
         run: nix fmt -- --check flake.nix pkgs/*.nix nix/*.nix .flox/pkgs/*.nix
       - name: Build and check every Flox package
         run: |
-          flox build --nixpkgs-url "$NIXPKGS_URL"
+          url=$(jq -r '.nodes.nixpkgs.locked | "https://github.com/" + .owner + "/" + .repo + "?rev=" + .rev' flake.lock)
+          echo "NIXPKGS_URL=$url" >> "$GITHUB_ENV"
+          flox build --nixpkgs-url "$url"
           mkdir -p "$RUNNER_TEMP/package-build"
           results="$RUNNER_TEMP/package-build/$SYSTEM.json"
           : > "$results"
@@ -116,7 +81,7 @@ jobs:
           path: ${{ runner.temp }}/package-build/
           if-no-files-found: error
       - name: Publish packages
-        if: needs.prepare.outputs.publish == 'true'
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         env:
           FLOX_FLOXHUB_TOKEN: ${{ secrets.FLOX_FLOXHUB_TOKEN }}
         run: |
@@ -131,18 +96,17 @@ jobs:
   checks:
     name: Package checks
     if: always()
-    needs: [prepare, platform]
+    needs: platform
     runs-on: ubuntu-24.04
     steps:
       - name: Require all native builds and checks
         env:
-          PREPARE: ${{ needs.prepare.result }}
           PLATFORM: ${{ needs.platform.result }}
-        run: '[[ "$PREPARE" == success && "$PLATFORM" == success ]]'
+        run: '[[ "$PLATFORM" == success ]]'
 
   release:
-    needs: [prepare, checks]
-    if: needs.prepare.outputs.publish == 'true' && needs.checks.result == 'success'
+    needs: checks
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     name: Verify catalog and create releases
     runs-on: ubuntu-24.04
     environment: flox
@@ -161,12 +125,12 @@ jobs:
           path: ${{ runner.temp }}/package-build
       - name: Verify exact-version and unpinned catalog resolution
         env:
-          SYSTEMS: ${{ needs.prepare.outputs.systems }}
           FLOX_FLOXHUB_TOKEN: ${{ secrets.FLOX_FLOXHUB_TOKEN }}
         run: |
+          systems=$(nix eval --json --file nix/systems.nix)
           jq -s 'sort_by(.package, .system)' "$RUNNER_TEMP"/package-build/*.json > "$RUNNER_TEMP/expected.json"
           for exact in true false; do
-            jq -r --argjson systems "$SYSTEMS" --argjson exact "$exact" '
+            jq -r --argjson systems "$systems" --argjson exact "$exact" '
               "schema-version = \"1.17.0\"", "[options]", "systems = \($systems | tojson)",
               (unique_by(.package)[] |
                 "[install.\(.package)]", "pkg-path = \"fellowapp/\(.package)\"",

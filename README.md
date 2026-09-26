@@ -78,9 +78,9 @@ nix run github:fellowapp/nix-support#atlas
 Atlas and Debezium Server are published automatically to the `fellowapp` Flox
 catalog. The [Packages workflow](.github/workflows/packages.yml) builds every
 expression in [`.flox/pkgs/`](.flox/pkgs/) on `x86_64-linux`, `aarch64-linux`, and
-`aarch64-darwin`. The flake and CI share the supported system list in
-[`nix/systems.nix`](nix/systems.nix). Packages retained only under `pkgs/` are not
-published.
+`aarch64-darwin`. The workflow declares its runners directly; keep its matrix
+aligned with the flake's [`nix/systems.nix`](nix/systems.nix). Packages retained
+only under `pkgs/` are not published.
 
 Each platform builds all registered packages with `flox build`, checks that
 their store paths match the flake packages, and runs each package's
@@ -89,19 +89,22 @@ flake and add a Flox expression and a smoke test accepting its output path.
 There is no separate publishing registry or version metadata file.
 
 Pull requests only build and test. On `main`, each native runner then calls
-`flox publish --org fellowapp` for every registered package. Main workflows run
-serially; stale workflows that start after main has advanced only build and
-test. The `flox` GitHub environment supplies `FLOX_FLOXHUB_TOKEN` to publishing
-and catalog-verification jobs. Failed publications can be retried by rerunning
-the workflow; Flox handles already-published builds.
+`flox publish --org fellowapp` for every registered package. GitHub Actions
+concurrency allows one main workflow to run at a time without interruption.
+A new queued run replaces any previous pending run; newer PR runs also cancel
+older running checks. Concurrency does not prevent manual reruns of old commits.
+The `flox` GitHub environment supplies `FLOX_FLOXHUB_TOKEN` to publishing and
+catalog-verification jobs. Failed publications can be retried by rerunning the
+workflow; Flox handles already-published builds.
 
 Both the flake and Flox expressions use **the nixpkgs commit in `flake.lock`**.
 The Flox wrappers import that pin explicitly, including for local builds. CI
 also passes it to Flox's `--nixpkgs-url` option so publication metadata agrees.
 This option is supported but hidden in Flox 1.17.0; the workflow pins the CLI
 version. The flake tracks Flox's `unstable` mirror because publishing requires a
-revision listed in the Flox catalog. CI checks that requirement before building.
-Update the shared pin with `nix flake update nixpkgs`.
+revision listed in the Flox catalog; `flox publish` validates compatibility.
+Each runner reads the pin directly from the lockfile. Update it with
+`nix flake update nixpkgs`.
 
 Packages keep their upstream versions, such as `1.2.0` and `3.1.1.Final`.
 Dependency and packaging changes are identified by Nix derivation and output

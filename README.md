@@ -75,7 +75,8 @@ nix run github:fellowapp/nix-support#atlas
 
 ### Flox catalog and CI publishing
 
-Atlas and Debezium Server are published automatically to the `fellowapp` Flox
+Atlas, Debezium Server, the MySQL/Vitess/PlanetScale Debezium connectors,
+Elasticsearch 8, and Vitess are published automatically to the `fellowapp` Flox
 catalog. The [Packages workflow](.github/workflows/packages.yml) builds every
 expression in [`.flox/pkgs/`](.flox/pkgs/) on `x86_64-linux`, `aarch64-linux`, and
 `aarch64-darwin`. The workflow declares its runners directly; keep its matrix
@@ -93,9 +94,9 @@ Pull requests only build and test. On `main`, each native runner then calls
 concurrency allows one main workflow to run at a time without interruption.
 A new queued run replaces any previous pending run; newer PR runs also cancel
 older running checks. Concurrency does not prevent manual reruns of old commits.
-The `flox` GitHub environment supplies `FLOX_FLOXHUB_TOKEN` to publishing and
-catalog-verification jobs. Failed publications can be retried by rerunning the
-workflow; Flox handles already-published builds.
+The `flox` GitHub environment supplies `FLOX_FLOXHUB_TOKEN` to the publishing
+steps. Failed publications can be retried by rerunning the workflow; Flox
+handles already-published builds.
 
 Both the flake and Flox expressions use **the nixpkgs commit in `flake.lock`**.
 The Flox wrappers import that pin explicitly, including for local builds. CI
@@ -112,28 +113,40 @@ paths, without adding a version suffix. A version constraint selects an
 upstream version; the consumer's Flox lockfile pins the particular build.
 Existing environments retain their locked builds until upgraded.
 
-After all native jobs succeed, CI resolves both exact-version and unpinned
-installs across all supported systems and compares the catalog's selected
-versions and output paths with the tested builds. It retries briefly for
-catalog propagation and fails if different builds are selected. This also
-checks resolution alongside previously published versions with hash suffixes.
-Build records are passed between jobs as temporary Actions artifacts.
+CI treats a successful `flox publish` as publication success. After all native
+builds, smoke tests, and publications succeed, a final job reads upstream
+versions from Nix and creates GitHub releases, tagged `atlas/v1.2.0`, for example.
+These releases contain installation notes and no uploaded assets. Existing
+releases are left in place when dependencies are rebuilt under the same
+upstream version. Releases do not control publication or retries, and
+publication across platforms is not atomic.
 
-Only after verification does CI create GitHub releases, tagged
-`atlas/v1.2.0`, for example. These releases contain installation notes and no
-uploaded assets. Existing releases are left in place when dependencies are
-rebuilt under the same upstream version. Releases do not control publication
-or retries, and publication across platforms is not atomic.
+Smoke tests check Debezium Server's core and runner JARs and native Java
+launcher; connector JAR integrity, embedded versions, and connector classes;
+Elasticsearch's version and plugin launchers; and Vitess's executable versions
+and required `config/` files. They do not run database replication or start
+Elasticsearch/Vitess clusters.
 
-Debezium Server's smoke test checks the version embedded in its core JAR, the
-runner JAR, and the packaged launcher with its native JRE. It does not start
-connectors or require an external database or message broker.
+Connector outputs retain their `debezium/debezium-connector-<name>/` layout.
+The PlanetScale package retains `2.4.0.Final` from upstream tag
+`v2.4.0.Final.PS20241031.1` in the
+[archived connector repository](https://github.com/planetscale/debezium-connector-planetscale-archived).
+
+Elasticsearch uses the upstream binary distribution under
+[Elastic License 2.0](https://www.elastic.co/pricing/faq/licensing). The Nix
+imports allow this package specifically. Flox consumers that disallow unfree
+packages must enable `unfree = true` under `[options.allow]` to install it.
 
 Members of the Flox organization can install the packages with:
 
 ```bash
 flox install fellowapp/atlas
 flox install fellowapp/debezium-server
+flox install fellowapp/debezium-connector-mysql
+flox install fellowapp/debezium-connector-vitess
+flox install fellowapp/debezium-connector-planetscale
+flox install fellowapp/elasticsearch8
+flox install fellowapp/vitess
 ```
 
 For a local build, ensure the recipes and their shared inputs are tracked by Git:

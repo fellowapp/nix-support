@@ -17,6 +17,7 @@
       system: let
         pkgs = import nixpkgs {
           inherit system;
+          config.allowUnfreePredicate = pkg: (pkg.pname or "") == "elasticsearch";
         };
 
         # Import our package modules
@@ -49,27 +50,21 @@
             touch $out
           '';
 
-          debezium-structure = pkgs.runCommand "check-debezium-structure" {} ''
-            if [ ! -d ${customPkgs.debezium-connector-mysql}/debezium ]; then
-              echo "✗ debezium folder does not exist in the package"
-              exit 1
-            fi
+          debezium-structure = pkgs.runCommand "check-debezium-connectors" {} ''
+            ${customPkgs.debezium-connector-mysql.passthru.smokeTest} ${customPkgs.debezium-connector-mysql}
+            ${customPkgs.debezium-connector-vitess.passthru.smokeTest} ${customPkgs.debezium-connector-vitess}
+            ${customPkgs.debezium-connector-planetscale.passthru.smokeTest} ${customPkgs.debezium-connector-planetscale}
             touch $out
           '';
 
           elasticsearch-version = pkgs.runCommand "check-elasticsearch-version" {} ''
-            output=$(${customPkgs.elasticsearch8}/bin/elasticsearch --version)
-            expected_version="8.17.3"
+            ${customPkgs.elasticsearch8.passthru.smokeTest} ${customPkgs.elasticsearch8}
+            touch $out
+          '';
 
-            if echo "$output" | grep -q "$expected_version"; then
-              echo "✓ Elasticsearch version check passed: $output"
-              touch $out
-            else
-              echo "✗ Elasticsearch version check failed"
-              echo "Expected version: $expected_version"
-              echo "Actual output: $output"
-              exit 1
-            fi
+          vitess = pkgs.runCommand "check-vitess" {} ''
+            ${customPkgs.vitess.passthru.smokeTest} ${customPkgs.vitess}
+            touch $out
           '';
 
           atlas-version = pkgs.runCommand "check-atlas-version" {} ''

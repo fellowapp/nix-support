@@ -24,15 +24,6 @@ in
       hash = hashes."${arch}-${plat}";
     };
 
-    postPatch = ''
-      substituteInPlace bin/elasticsearch-env --replace \
-        "ES_CLASSPATH=\"\$ES_HOME/lib/*\"" \
-        "ES_CLASSPATH=\"$out/lib/*\""
-      substituteInPlace bin/elasticsearch-cli --replace \
-        "ES_CLASSPATH=\"\$ES_CLASSPATH:\$ES_HOME/\$additional_classpath_directory/*\"" \
-        "ES_CLASSPATH=\"\$ES_CLASSPATH:$out/\$additional_classpath_directory/*\""
-    '';
-
     nativeBuildInputs =
       [
         pkgs.makeBinaryWrapper
@@ -52,9 +43,8 @@ in
     installPhase = ''
       mkdir -p $out
       cp -R bin config lib modules plugins $out
+      cp LICENSE.txt NOTICE.txt $out/
       chmod +x $out/bin/*
-      substituteInPlace $out/bin/elasticsearch \
-        --replace 'bin/elasticsearch-keystore' "$out/bin/elasticsearch-keystore"
       wrapProgram $out/bin/elasticsearch \
         --prefix PATH : "${
         pkgs.lib.strings.makeBinPath [
@@ -64,7 +54,11 @@ in
         ]
       }" \
         --set ES_JAVA_HOME "${pkgs.jre_headless}"
-      wrapProgram $out/bin/elasticsearch-plugin --set ES_JAVA_HOME "${pkgs.jre_headless}"
+      # The CLI otherwise infers "plugin-wrapped" from the wrapper's script name.
+      wrapProgram $out/bin/elasticsearch-plugin \
+        --prefix PATH : "${pkgs.lib.makeBinPath [pkgs.coreutils]}" \
+        --set ES_JAVA_HOME "${pkgs.jre_headless}" \
+        --set CLI_NAME plugin
     '';
 
     postInstall = pkgs.lib.optionalString (!pkgs.stdenv.hostPlatform.isDarwin) ''
@@ -97,7 +91,21 @@ in
       done
     '';
 
-    passthru = {
-      enableUnfree = true;
+    passthru.smokeTest = pkgs.writeShellScript "check-elasticsearch" ''
+      set -euo pipefail
+      actual=$("$1/bin/elasticsearch" --version)
+      [[ $actual == "Version: ${version},"* ]]
+      "$1/bin/elasticsearch-plugin" list > /dev/null
+      test -s "$1/config/elasticsearch.yml"
+      echo "$actual"
+    '';
+
+    meta = {
+      description = "Distributed search and analytics engine";
+      homepage = "https://www.elastic.co/elasticsearch";
+      license = pkgs.lib.licenses.elastic20;
+      platforms = import ../nix/systems.nix;
+      mainProgram = "elasticsearch";
+      sourceProvenance = [pkgs.lib.sourceTypes.binaryNativeCode];
     };
   }

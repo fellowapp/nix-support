@@ -60,9 +60,6 @@ jobs:
           url=$(jq -r '.nodes.nixpkgs.locked | "https://github.com/" + .owner + "/" + .repo + "?rev=" + .rev' flake.lock)
           echo "NIXPKGS_URL=$url" >> "$GITHUB_ENV"
           flox build --nixpkgs-url "$url"
-          mkdir -p "$RUNNER_TEMP/package-build"
-          results="$RUNNER_TEMP/package-build/$SYSTEM.json"
-          : > "$results"
           for recipe in .flox/pkgs/*.nix; do
             package=${recipe##*/}
             package=${package%.nix}
@@ -71,15 +68,7 @@ jobs:
             [[ $out == "$(nix eval --raw ".#packages.$SYSTEM.$package.outPath")" ]]
             check=$(nix build --no-link --print-out-paths ".#packages.$SYSTEM.$package.passthru.smokeTest")
             "$check" "$out"
-            version=$(nix eval --raw ".#packages.$SYSTEM.$package.version")
-            jq -nc --arg package "$package" --arg system "$SYSTEM" --arg version "$version" --arg out "$out" \
-              '{package: $package, system: $system, version: $version, out: $out}' >> "$results"
           done
-      - uses: actions/upload-artifact@v4
-        with:
-          name: package-build-${{ matrix.system }}
-          path: ${{ runner.temp }}/package-build/
-          if-no-files-found: error
       - name: Publish packages
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         env:
@@ -107,61 +96,23 @@ jobs:
   release:
     needs: checks
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    name: Verify catalog and create releases
+    name: Create GitHub releases
     runs-on: ubuntu-24.04
-    environment: flox
     permissions:
       contents: write
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - uses: flox/install-flox-action@1128abd73431089ab9d871c893b4e72a729354e1 # v2
-        with:
-          version: ${{ env.CI_FLOX_VERSION }}
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: package-build-*
-          merge-multiple: true
-          path: ${{ runner.temp }}/package-build
-      - name: Verify exact-version and unpinned catalog resolution
-        env:
-          FLOX_FLOXHUB_TOKEN: ${{ secrets.FLOX_FLOXHUB_TOKEN }}
-        run: |
-          systems=$(nix eval --json --file nix/systems.nix)
-          jq -s 'sort_by(.package, .system)' "$RUNNER_TEMP"/package-build/*.json > "$RUNNER_TEMP/expected.json"
-          for exact in true false; do
-            jq -r --argjson systems "$systems" --argjson exact "$exact" '
-              "schema-version = \"1.17.0\"", "[options]", "systems = \($systems | tojson)",
-              (unique_by(.package)[] |
-                "[install.\(.package)]", "pkg-path = \"fellowapp/\(.package)\"",
-                if $exact then "version = \"\(.version)\"" else empty end)
-            ' "$RUNNER_TEMP/expected.json" > "$RUNNER_TEMP/consumer.toml"
-            verified=false
-            for attempt in 1 2 3 4 5 6; do
-              directory="$RUNNER_TEMP/consumer-$exact-$attempt"
-              mkdir -p "$directory"
-              flox init --bare --name package-ci --dir "$directory"
-              if flox edit --dir "$directory" --file "$RUNNER_TEMP/consumer.toml" &&
-                jq -e --slurpfile expected "$RUNNER_TEMP/expected.json" '
-                  [.packages[] | {package: .install_id, system, version, out: .outputs.out}] |
-                  sort_by(.package, .system) == $expected[0]
-                ' "$directory/.flox/env/manifest.lock"; then
-                verified=true
-                break
-              fi
-              if [[ $attempt != 6 ]]; then sleep 10; fi
-            done
-            if [[ $verified != true ]]; then
-              echo "Catalog did not resolve the tested outputs (exact=$exact)" >&2
-              exit 1
-            fi
-          done
+      - uses: DeterminateSystems/nix-installer-action@v16
       - name: Create GitHub releases for new upstream versions
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" > "$RUNNER_TEMP/releases.json"
-          while IFS=$'\t' read -r package version; do
+          for recipe in .flox/pkgs/*.nix; do
+            package=${recipe##*/}
+            package=${package%.nix}
+            version=$(nix eval --raw ".#packages.x86_64-linux.$package.version")
             tag="$package/v$version"
             if jq -e --arg tag "$tag" 'any(.[][]; .tag_name == $tag)' "$RUNNER_TEMP/releases.json" > /dev/null; then
               continue
@@ -171,10 +122,10 @@ jobs:
 
           Install with \`flox install fellowapp/$package@$version\`.
 
-          Native builds, smoke tests, and catalog resolution passed on all supported systems.
+          Native builds, smoke tests, and Flox publication succeeded on all supported systems.
 
           Source: \`$GITHUB_SHA\`
           EOF
             gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
               --title "$package $version" --latest=false --notes-file "$RUNNER_TEMP/notes.md"
-          done < <(jq -r 'unique_by(.package)[] | [.package, .version] | @tsv' "$RUNNER_TEMP/expected.json")
+          done

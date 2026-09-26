@@ -30,10 +30,23 @@ pkgs.buildGoModule (finalAttrs: {
     cp $src/config/mycnf/*.cnf $out/config/mycnf/
   '';
 
+  passthru.smokeTest = pkgs.writeShellScript "check-vitess" ''
+    set -euo pipefail
+    for binary in vtgate vttablet vtctld vtctldclient mysqlctl vttestserver; do
+      actual=$("$1/bin/$binary" --version)
+      [[ $actual == *"Version: ${finalAttrs.version} "* ]]
+      echo "$actual"
+    done
+    test -s "$1/config/init_db.sql"
+    test -s "$1/config/mycnf/test-suite.cnf"
+    test -s "$1/config/mycnf/default.cnf"
+  '';
+
   meta = {
     homepage = "https://vitess.io/";
     changelog = "https://github.com/vitessio/vitess/releases/tag/v${finalAttrs.version}";
     description = "Database clustering system for horizontal scaling of MySQL";
     license = pkgs.lib.licenses.asl20;
+    platforms = import ../nix/systems.nix;
   };
 })

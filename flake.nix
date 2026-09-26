@@ -13,7 +13,7 @@
     nixpkgs,
     flake-utils,
   }:
-    flake-utils.lib.eachDefaultSystem (
+    flake-utils.lib.eachSystem (import ./nix/systems.nix) (
       system: let
         pkgs = import nixpkgs {
           inherit system;

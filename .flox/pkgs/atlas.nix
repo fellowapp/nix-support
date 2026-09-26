@@ -4,9 +4,5 @@
   pinnedPkgs = import ../../nix/pinned-nixpkgs.nix {
     system = pkgs.stdenv.hostPlatform.system;
   };
-  release = import ../../nix/release.nix {package = "atlas";};
 in
-  (import ../../pkgs/atlas.nix {pkgs = pinnedPkgs;}).overrideAttrs {
-    version = release.version;
-    __intentionallyOverridingVersion = true;
-  }
+  import ../../pkgs/atlas.nix {pkgs = pinnedPkgs;}

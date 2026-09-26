@@ -9,7 +9,6 @@
     then "arm64"
     else "amd64";
   hashes = {
-    darwin-amd64 = "sha256-/8/N3gDBS9Q8StfHG2IQ+/szcXuyNxI5jLLTbPbcph8=";
     darwin-arm64 = "sha256-rR43cKzLt+igWQaSKOrSK99vJ1kTEhJFG0T1GGYbjkA=";
     linux-amd64 = "sha256-xJ1MPgBM8VgboNSgDFAjom+E6y7BXV/odu7TbVND9GM=";
     linux-arm64 = "sha256-nOcPyB5QE56XdY739NxX6Vg+Tl7wWtdddTXDDKoWE4c=";
@@ -35,7 +34,7 @@ in
       changelog = "https://github.com/dolthub/dolt/releases/tag/v${version}";
       license = licenses.asl20;
       mainProgram = "dolt";
-      platforms = ["aarch64-darwin" "x86_64-darwin" "aarch64-linux" "x86_64-linux"];
+      platforms = ["aarch64-darwin" "aarch64-linux" "x86_64-linux"];
       sourceProvenance = [sourceTypes.binaryNativeCode];
     };
   }

@@ -3,7 +3,7 @@
 # Upstream nixpkgs only installs binaries. Although mysqlctl embeds defaults,
 # vttestserver explicitly passes $VTROOT/config/init_db.sql and
 # $VTROOT/config/mycnf/test-suite.cnf to it. Keep these files for vttestserver.
-# Verified for Vitess 23.0.3 and 24.0.3; see docs/packaging-status.md.
+# Verified for Vitess 23.0.3 and 24.0.3.
 {pkgs}:
 pkgs.buildGoModule (finalAttrs: {
   pname = "vitess";

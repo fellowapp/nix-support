@@ -11,6 +11,7 @@ permissions:
   contents: read
 
 env:
+  CI_FLOX_VERSION: '1.17.0'
   NIX_CONFIG: 'extra-experimental-features = nix-command flakes'
 
 concurrency:
@@ -23,8 +24,8 @@ jobs:
     permissions:
       contents: write
     outputs:
-      platforms: ${{ steps.registry.outputs.platforms }}
-      flox_version: ${{ steps.registry.outputs.flox_version }}
+      platforms: ${{ steps.matrix.outputs.platforms }}
+      flox_version: ${{ steps.matrix.outputs.flox_version }}
       plans: ${{ steps.plan.outputs.plans }}
       pending: ${{ steps.plan.outputs.pending }}
     steps:
@@ -39,24 +40,31 @@ jobs:
             .base_url == ("https://github.com/" + $pin.owner + "/" + $pin.repo) and
             any(.scraped_pages[]; .rev == $pin.rev)
           ' "$RUNNER_TEMP/flox-catalog.json" > /dev/null
-      - name: Read the shared package registry
-        id: registry
+      - uses: DeterminateSystems/nix-installer-action@v16
+      - name: Map supported Nix systems to CI runners
+        id: matrix
         run: |
+          systems=$(nix eval --json --file nix/systems.nix)
+          platforms=$(jq -nc --argjson systems "$systems" '
+            {"x86_64-linux": "ubuntu-24.04", "aarch64-linux": "ubuntu-24.04-arm",
+             "x86_64-darwin": "macos-15-intel", "aarch64-darwin": "macos-15"} as $runners |
+            {include: [$systems[] | {system: ., runner: $runners[.]}]}
+          ')
           {
-            echo "platforms=$(jq -c '{include: .platforms}' .github/packages.json)"
-            echo "flox_version=$(jq -r .flox_version .github/packages.json)"
+            echo "platforms=$platforms"
+            echo "flox_version=$CI_FLOX_VERSION"
           } >> "$GITHUB_OUTPUT"
       - name: Test publication selection and recovery
         run: bash tests/publication.sh
-      - uses: DeterminateSystems/nix-installer-action@v16
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
       - name: Reserve release identities and original source commits
         id: plan
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          for package in $(jq -r '.packages | keys[]' .github/packages.json); do
+          for recipe in .flox/pkgs/*.nix; do
+            package=${recipe##*/}
+            package=${package%.nix}
             directory="$RUNNER_TEMP/package-plan/$package"
             mkdir -p "$directory"
             nix eval --json --file nix/release.nix --apply "release: release { package = \"$package\"; }" > "$directory/metadata.json"
@@ -97,11 +105,8 @@ jobs:
       - name: Check that unrelated changes preserve package versions
         if: matrix.system == 'x86_64-linux'
         run: bash tests/package-identity.sh
-      - name: Build and check every registered package
-        run: |
-          for package in $(jq -r '.packages | keys[]' .github/packages.json); do
-            PACKAGE="$package" bash scripts/publish-package.sh build "$RUNNER_TEMP/package-build/$package"
-          done
+      - name: Build and check every Flox package
+        run: bash scripts/publish-package.sh build "$RUNNER_TEMP/package-build"
       - uses: actions/upload-artifact@v4
         with:
           name: package-build-${{ matrix.system }}

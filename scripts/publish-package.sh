@@ -10,10 +10,6 @@ identity_filter='def identity: {package, version, fingerprint, nixpkgs_rev, syst
 
 die() { echo "Error: $*" >&2; exit 1; }
 metadata() { nix eval --json --file nix/release.nix --apply "release: release { package = \"$package\"; }"; }
-emit() {
-  echo "$1=$2"
-  if [[ -n ${GITHUB_OUTPUT:-} ]]; then echo "$1=$2" >> "$GITHUB_OUTPUT"; fi
-}
 find_release() {
   gh api --paginate --slurp "repos/$repo/releases?per_page=100" -H 'Cache-Control: no-cache' |
     jq --arg tag "$tag" '[.[][] | select(.tag_name == $tag)] | first // null'
@@ -36,25 +32,32 @@ upload() {
 }
 
 smoke() {
-  local script
-  script=$(jq -r '.smoke_script // empty' <<< "$meta")
-  if [[ -n $script ]]; then
-    bash "$script" "$1" "$upstream"
-    return
-  fi
-  local actual
-  local args=() argument
-  while IFS= read -r argument; do args+=("$argument"); done < <(jq -r '.smoke_args[]' <<< "$meta")
-  actual=$("$1/$(jq -r .smoke_program <<< "$meta")" "${args[@]}")
-  echo "$actual"
-  [[ $(head -n 1 <<< "$actual") == "$(jq -r .version_prefix <<< "$meta")$upstream" ]] || die "Unexpected executable version"
+  local check
+  check=$(nix build --no-link --print-out-paths --impure --expr \
+    "let pkgs = import ./nix/pinned-nixpkgs.nix { system = builtins.currentSystem; }; in (import ./.flox/pkgs/$package.nix { inherit pkgs; }).passthru.smokeTest")
+  "$check" "$1"
 }
 
 check_flox() {
-  local actual expected
+  local actual expected=${CI_FLOX_VERSION:-}
+  [[ -n $expected ]] || return 0
   actual=$(flox --version)
-  expected=$(jq -r .flox_version <<< "$meta")
   [[ ${actual%%-*} == "$expected" ]] || die "Expected Flox $expected, found $actual"
+}
+
+build_all() {
+  local directory=$1 native url recipe name
+  check_flox
+  native=$(nix eval --raw --impure --expr builtins.currentSystem)
+  [[ $native == "${SYSTEM:-$native}" ]] || die 'Runner has the wrong architecture'
+  url=$(jq -r '.nodes.nixpkgs.locked | "https://github.com/" + .owner + "/" + .repo + "?rev=" + .rev' flake.lock)
+  # Flox discovers every expression in .flox/pkgs; build them together once.
+  flox build --nixpkgs-url "$url"
+  for recipe in .flox/pkgs/*.nix; do
+    name=${recipe##*/}
+    name=${name%.nix}
+    PACKAGE="$name" SYSTEM="$native" bash "$0" record-build "$directory/$name"
+  done
 }
 
 resolve_once() {
@@ -95,7 +98,7 @@ verify_build() {
   jq -e --argjson meta "$meta" "$identity_filter identity == (\$meta | identity)" <<< "$publication" > /dev/null || die 'Publication inputs differ from this build'
   jq -e --argjson meta "$meta" --arg system "$system" --arg source "${GITHUB_SHA:?}" "$identity_filter"'
     (.metadata | identity) == ($meta | identity) and .system == $system and .source == $source and
-    (.out | startswith("/nix/store/") and endswith("-" + $meta.package + "-" + $meta.version))
+    (.out | startswith("/nix/store/") and endswith("-" + $meta.pname + "-" + $meta.version))
   ' "$directory/$system.json" > /dev/null || die 'Invalid native build result'
   expected=$(jq -er .out "$directory/$system.json")
   receipt=$(asset "$system.json")
@@ -110,8 +113,12 @@ verify_build() {
 }
 
 main() {
-  package=${PACKAGE:?Set PACKAGE to a registered package}
-  local command=${1:?Expected metadata, build, prepare, verify-built, publish, or finish}
+  if [[ ${1:-} == build ]]; then
+    build_all "${2:?Expected build results directory}"
+    return
+  fi
+  package=${PACKAGE:?Set PACKAGE to a package in .flox/pkgs}
+  local command=${1:?Expected metadata, build, record-build, prepare, verify-built, publish, or finish}
   local directory=${2:-}
   work=$(mktemp -d)
   trap 'rm -rf "$work"' EXIT
@@ -128,20 +135,13 @@ main() {
 
   case "$command" in
     metadata)
-      emit matrix "$(jq -c '{include: .platforms}' <<< "$meta")"
-      emit flox_version "$(jq -r .flox_version <<< "$meta")"
+      echo "$meta"
       ;;
 
-    build)
-      check_flox
-      system=$(nix eval --raw --impure --expr builtins.currentSystem)
-      [[ $system == "${SYSTEM:?}" ]] || die 'Runner has the wrong architecture'
-      nix build --no-link ".#checks.$system.$(jq -r .check <<< "$meta")"
-      # Flox 1.17 supports this hidden option. Pinning the CLI and checking the
-      # output keeps both the builder and published provenance on flake.lock.
-      flox build --nixpkgs-url "$nixpkgs_url" "$package"
+    record-build)
+      system=${SYSTEM:?}
       out=$(readlink "result-$package")
-      [[ $out == /nix/store/*-"$package-$version" ]] || die 'Unexpected Flox output version'
+      [[ $out == /nix/store/*-"$(jq -r .pname <<< "$meta")-$version" ]] || die 'Unexpected Flox output version'
       smoke "$out"
       mkdir -p "$directory"
       jq -n --argjson metadata "$meta" --arg system "$system" --arg out "$out" \

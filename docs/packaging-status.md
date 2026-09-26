@@ -5,10 +5,11 @@ package recipes evaluate to derivations on all four configured systems. This
 is an evaluation check, not evidence that their native builds or services work.
 Atlas and Debezium Server have already completed four-platform publication.
 
-Every additional package needs a version metadata file, a Flox wrapper, a
-registry entry, and a meaningful native smoke check. The shared workflow already
-supports package-specific smoke scripts, including checks for packages without
-an executable. The `debezium` flake attribute is an alias for the MySQL connector,
+Every additional package needs a Flox expression in `.flox/pkgs/`, explicit
+`pname`/`version` attributes in its upstream Nix derivation, and a meaningful
+`passthru.smokeTest` accepting the built output path. Bare `flox build` discovers
+the packages; there is no registry or separate version metadata file. Smoke
+scripts also support packages without an executable. The `debezium` flake attribute is an alias for the MySQL connector,
 not a separate package to publish.
 
 | Package | Blocker or limitation | Required work |
@@ -17,7 +18,7 @@ not a separate package to publish.
 | `terragrunt` | No longer needed locally: upstream packaging now meets the consumer need. | Exclude from the publishing rollout. Retain the recipe for existing consumers while migrating them upstream. |
 | `cursor-cli` | No longer needed locally: consumers will migrate to upstream. The retained recipe uses `latest` and downloads unpinned application files during installation. | Keep the recipe in the repo during consumer migration; do not invest in publishing it to Flox. |
 | `vitess` | Still needs the local `config/` installation for `vttestserver`; see the verification below. Also, its source URL uses `finalAttrs.version`, so a version-only Flox override requests a nonexistent packaging-suffixed upstream tag. | Retain the local package. Separate upstream source version from publication version, or preserve `src` explicitly in the wrapper. Check executables and required `config/` files; service-level tests need MySQL infrastructure. |
-| `elasticsearch8` | The derivation's `pname` is `elasticsearch`, while the registry/flake name would be `elasticsearch8`. Current output-path validation assumes these names match. License metadata is absent; `passthru.enableUnfree = true` does not declare a license or configure Flox's consumer policy. | Normalize the wrapper name or teach the registry about output names. Add accurate distribution license metadata and applicable consumer settings. Validate all native builds and runtime launchers. Its `util-linux` dependencies do evaluate on macOS at this pin, so they are not a demonstrated platform blocker. |
+| `elasticsearch8` | The derivation's `pname` is `elasticsearch`, while the flake name is `elasticsearch8`; output validation now reads `pname` from Nix. License metadata is absent; `passthru.enableUnfree = true` does not declare a license or configure Flox's consumer policy. | Add accurate distribution license metadata and applicable consumer settings. Validate all native builds and runtime launchers. Its `util-linux` dependencies do evaluate on macOS at this pin, so they are not a demonstrated platform blocker. |
 | `debezium-connector-mysql` | Recipe uses `name` only, with no explicit `pname`/`version`. Ships connector JARs, not a CLI. | Add explicit version/name metadata and a JAR/layout smoke check. Verify that Flox exposes the connector directory at the documented path. |
 | `debezium-connector-vitess` | Same missing `pname`/`version` and data-only output issue as the MySQL connector. | Add metadata and a JAR/layout check. |
 | `debezium-connector-planetscale` | Has version metadata, but its upstream tag additionally contains `PS20241031.1`. Ships a connector JAR, not a CLI. | Preserve the full upstream tag as a pinned source input and add a JAR/layout check. No additional recipe blocker identified. |
@@ -62,8 +63,8 @@ inspection, not a newly run MySQL integration test.
   [Nixpkgs release notes](https://nixos.org/manual/nixpkgs/unstable/release-notes#x86_64-darwin-26.05).
 - `+fellow.<hash>` identifies a package build but does not order SemVer build
   metadata. Exact and unpinned catalog resolution must continue to be checked.
-- All registered packages currently share the same four systems. If native
-  testing proves a package cannot support one of them, the registry, fingerprint
+- All Flox packages currently share the same four systems. If native
+  testing proves a package cannot support one of them, the Nix system list, fingerprint
   calculation, build loops, and release checks need coordinated support for a
   per-package system list. Evaluation alone has not demonstrated such a case.
 - Source builds and large Java closures can increase job time and disk use.
@@ -75,4 +76,4 @@ packages have the fewest identified prerequisites.
 
 RustFS, Terragrunt, Cursor, Dolt, and Svix Server are excluded because their
 consumers can migrate upstream. Their local recipes remain for compatibility;
-do not add them to the Flox publishing registry.
+do not add Flox expressions for them under `.flox/pkgs/`.

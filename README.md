@@ -76,13 +76,19 @@ nix run github:fellowapp/nix-support#atlas
 ### Flox catalog and CI publishing
 
 Atlas and Debezium Server are published automatically to the `fellowapp` Flox
-catalog. The shared [Packages workflow](.github/workflows/packages.yml) reads
-[the package registry](.github/packages.json); additional packages will use the
-same workflow as they are migrated.
+catalog. The shared [Packages workflow](.github/workflows/packages.yml) uses
+[`.flox/pkgs/`](.flox/pkgs/) as the package list. Each platform runs bare
+`flox build` with the shared nixpkgs pin, building every expression in that
+directory. Packages retained only under `pkgs/` are not published.
+
+Versions and names come from the upstream Nix derivations. Their
+`passthru.smokeTest` scripts accept a built output path, so the same checks run
+against flake builds and the actual Flox outputs. To add a package, provide its
+Flox expression and Nix smoke test; there is no separate publishing registry.
 See [remaining packaging blockers](docs/packaging-status.md) for the migration
 audit and the distinction between evaluation, build, and runtime coverage.
 
-Every pull request and push to `main` builds and checks each registered package
+Every pull request and push to `main` builds and checks each Flox package
 on `x86_64-linux`, `aarch64-linux`, `x86_64-darwin`, and `aarch64-darwin`. Pull
 requests never publish. On `main`, CI compares the resulting store paths with
 receipts attached to the corresponding GitHub release and publishes only missing
@@ -96,7 +102,7 @@ Both the flake and Flox recipe use **the nixpkgs commit in `flake.lock`**. The
 Flox wrapper imports that pin explicitly, including for local builds. CI also
 passes the same revision to Flox's `--nixpkgs-url` option so the published build
 provenance agrees. This option is supported but hidden in Flox 1.17.0; the CLI
-version is pinned in the registry and should be upgraded with the build checks.
+version is pinned in the workflow and should be upgraded with the build checks.
 The flake tracks Flox's `unstable` mirror because publishing requires a revision
 listed in the Flox catalog. The initial migration retains the existing nixpkgs
 commit and content hash; only the mirror URL changes. Update it with
@@ -109,9 +115,9 @@ derivations across the supported systems and its Flox wrapper. Adding another
 package, changing runner labels, or editing CI and smoke tests does not change
 its version. Dependency or packaging changes can produce a new publication
 without changing the upstream version. The flake retains the upstream version.
-The registry's `initial_publication` aliases preserve versions already uploaded
-under the old file-based hashing scheme, only while those exact derivations and
-wrappers remain unchanged. Do not update the aliases when upgrading packages.
+There are no historical fingerprint aliases; the six-character suffix is taken
+directly from the package fingerprint. Removing the former migration aliases
+creates new versions once for the already-published packages.
 Receipts retain the full fingerprint and reject conflicting identities even if
 their six-character suffixes collide. Existing 16-character releases remain
 available; the shorter format creates new versions and matching namespaced tags.
@@ -149,7 +155,7 @@ Existing Flox environments retain their lock until upgraded.
 For a local build, ensure the recipe and its shared inputs are tracked by Git:
 
 ```bash
-flox build atlas
+flox build
 ./result-atlas/bin/atlas version
 ```
 
@@ -157,9 +163,8 @@ flox build atlas
 build and smoke checks used by CI:
 
 ```bash
-export PACKAGE=atlas
 export SYSTEM=$(nix eval --raw --impure --expr builtins.currentSystem)
-bash scripts/publish-package.sh build /tmp/atlas-build
+bash scripts/publish-package.sh build /tmp/package-build
 ```
 
 Release-recovery checks can be run without credentials or network access:

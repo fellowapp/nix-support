@@ -44,13 +44,10 @@
         };
 
         checks = {
-          debezium-server =
-            pkgs.runCommand "check-debezium-server" {
-              nativeBuildInputs = [pkgs.unzip];
-            } ''
-              bash ${./tests/debezium-server.sh} ${customPkgs.debezium-server} ${customPkgs.debezium-server.version}
-              touch $out
-            '';
+          debezium-server = pkgs.runCommand "check-debezium-server" {} ''
+            ${customPkgs.debezium-server.passthru.smokeTest} ${customPkgs.debezium-server}
+            touch $out
+          '';
 
           debezium-structure = pkgs.runCommand "check-debezium-structure" {} ''
             if [ ! -d ${customPkgs.debezium-connector-mysql}/debezium ]; then
@@ -76,18 +73,8 @@
           '';
 
           atlas-version = pkgs.runCommand "check-atlas-version" {} ''
-            output=$(${customPkgs.atlas}/bin/atlas version)
-            expected_version="${customPkgs.atlas.version}"
-
-            if echo "$output" | grep -q "$expected_version"; then
-              echo "✓ Atlas version check passed: $output"
-              touch $out
-            else
-              echo "✗ Atlas version check failed"
-              echo "Expected version: $expected_version"
-              echo "Actual output: $output"
-              exit 1
-            fi
+            ${customPkgs.atlas.passthru.smokeTest} ${customPkgs.atlas}
+            touch $out
           '';
         };
       }

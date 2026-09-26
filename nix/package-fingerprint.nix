@@ -1,11 +1,11 @@
 {package}: let
-  config = builtins.fromJSON (builtins.readFile ../.github/packages.json);
-  derivations = map (platform: let
-    pkgs = import ./pinned-nixpkgs.nix {inherit (platform) system;};
+  systems = import ./systems.nix;
+  derivations = map (system: let
+    pkgs = import ./pinned-nixpkgs.nix {inherit system;};
   in {
-    inherit (platform) system;
+    inherit system;
     drv = (import (../pkgs + "/${package}.nix") {inherit pkgs;}).drvPath;
-  }) (builtins.sort (a: b: a.system < b.system) config.platforms);
+  }) (builtins.sort builtins.lessThan systems);
 in
   builtins.hashString "sha256" (builtins.toJSON {
     inherit derivations;

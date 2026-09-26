@@ -1,6 +1,5 @@
 {pkgs}: let
-  source = builtins.fromJSON (builtins.readFile ./debezium-server.json);
-  inherit (source) version;
+  version = "3.1.1.Final";
 in
   pkgs.stdenv.mkDerivation rec {
     # Use 'rec' for easier self-references if needed later
@@ -9,7 +8,7 @@ in
 
     src = fetchTarball {
       url = "https://repo1.maven.org/maven2/io/debezium/debezium-server-dist/${version}/debezium-server-dist-${version}.tar.gz";
-      sha256 = source.sha256;
+      sha256 = "1cl55qr9p2zhgiay1rlx93hphny6fqjrlcx5r07zv52i29xy8k20";
     };
 
     nativeBuildInputs = [pkgs.makeWrapper];
@@ -86,6 +85,11 @@ in
         --replace "__DEBEZIUM_HOME_PLACEHOLDER__" "$out/share/debezium-server"
 
       runHook postInstall
+    '';
+
+    passthru.smokeTest = pkgs.writeShellScript "check-debezium-server" ''
+      export PATH="${pkgs.lib.makeBinPath [pkgs.unzip pkgs.coreutils]}:$PATH"
+      exec ${pkgs.bash}/bin/bash ${../tests/debezium-server.sh} "$1" "${version}"
     '';
 
     meta = with pkgs.lib; {

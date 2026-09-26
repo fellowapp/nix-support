@@ -62,9 +62,9 @@ esac
 MOCK
 chmod +x "$work/bin/gh"
 
-meta=$(jq -n --slurpfile config "$root/.github/packages.json" '{
-  package: "atlas", version: "1.2.0+fellow.test", fingerprint: "test",
-  tag: "atlas/v1.2.0+fellow.test", platforms: $config[0].platforms
+meta=$(jq -n '{
+  package: "atlas", pname: "atlas", version: "1.2.0+fellow.test", fingerprint: "test",
+  tag: "atlas/v1.2.0+fellow.test", platforms: (["x86_64-linux", "aarch64-linux", "x86_64-darwin", "aarch64-darwin"] | map({system: .}))
 }')
 echo "$meta" > "$work/build/metadata.json"
 for system in $(jq -r '.platforms[].system' <<< "$meta"); do
